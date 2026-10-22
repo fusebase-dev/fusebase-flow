@@ -640,5 +640,55 @@ class GateRoundsAndCarryOver(m3.Gate):
         self.assertEqual(next(c for t, c in listed.items() if "httpOnly" in t), "security")
 
 
+
+class CommandGateCorpus(Kernel):
+    """Item 7.10 (the owner's lock of 2026-10-21, D1 = D1a, D2 = D2-no): FR-06 and FR-12 match the commands a line runs,
+    never words inside a quoted message, a heredoc a non-shell reads or a search pattern, and never name an approval for
+    an action the line does not take. The 132-row corpus (a byte copy of 5.x's) is an expectation gate."""
+
+    CORPUS = CORE / "maintainer/tests/command-gate-corpus.json"
+
+    def decide(self, command: str, tool: str = "Bash") -> dict:
+        event = {"cwd": str(self.repo), "tool_name": tool, "tool_input": {"command": command}}
+        out = run(self.repo, sys.executable, "hooks/handlers/pre_tool_use.py", stdin=json.dumps(event))
+        return json.loads(out.stdout or "{}") | {"rc": out.returncode}
+
+    def test_the_corpus_holds_as_an_expectation_gate(self) -> None:
+        corpus = json.loads(self.CORPUS.read_text(encoding="utf-8"))
+        accepted = corpus["accepted_misses"]
+        code = ("import json, sys\nfrom pathlib import Path\nfrom shared.command_policy import evaluate\n"
+                "cases = json.loads(sys.stdin.read())\n"
+                "print(json.dumps({c['id']: evaluate(c['command'], root=Path.cwd()).decision != 'allow' for c in cases}))")
+        out = run(self.repo, sys.executable, "-c", "import sys; sys.path.insert(0, 'hooks')\n" + code,
+                  stdin=json.dumps(corpus["cases"]))
+        self.assertEqual(out.returncode, 0, out.stderr)
+        gated = json.loads(out.stdout)
+        want = {c["id"]: c["should_gate"] and c["id"] not in accepted for c in corpus["cases"]}
+        self.assertEqual({k for k, v in gated.items() if v != want[k]}, set(), "cases off their expectation")
+        self.assertEqual(len(corpus["cases"]), 132)
+
+    def test_the_owners_real_cases(self) -> None:
+        for command in ('grep -n "rm " hooks/local/*.sh', "cat > notes.md <<'EOF'\nRun fusebase deploy after the build.\nEOF",
+                        'echo "To clean up: rm -rf build/" >> NOTES.md'):
+            self.assertEqual(self.decide(command)["flow_decision"], "allow", command)
+        for command, rule in (("rm -rf x", "FR-06"), ("fusebase deploy", "FR-12"), ("rm build.log", "FR-12")):
+            got = self.decide(command)
+            self.assertEqual((got["flow_decision"], got["rule_id"]), ("deny", rule), command)
+
+    def test_a_denial_names_only_an_approval_for_an_action_the_line_takes(self) -> None:
+        got = self.decide('git commit -m "fusebase deploy notes" && rm build.log')
+        self.assertEqual(got["flow_decision"], "deny")
+        self.assertIn("approve-local.sh destructive_file_delete", got["reason"])
+        self.assertNotIn("production_deploy", got["reason"])
+        unread = self.decide("case $x in a) fusebase deploy;; esac")  # unreadable: raw text, no approval named
+        self.assertEqual(unread["flow_decision"], "deny")
+        self.assertIn("could not be read as shell commands", unread["reason"])
+        self.assertNotIn("approve-local.sh", unread["reason"])
+
+    def test_a_powershell_line_is_judged_on_its_raw_text(self) -> None:
+        self.assertEqual(self.decide('Write-Output "rm -rf x"', tool="PowerShell")["flow_decision"], "deny")
+        self.assertEqual(self.decide('echo "rm -rf x"')["flow_decision"], "allow")
+
+
 if __name__ == "__main__":
     unittest.main()

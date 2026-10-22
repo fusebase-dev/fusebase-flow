@@ -11,8 +11,11 @@ require_approval rule. `flags` accepts ["i"] only, for now.
 """
 from __future__ import annotations
 
+import contextvars
 import re
 from typing import Any
+
+from .shell_view import View, view
 
 # TRIPWIRE: widening this map widens what a policy author can switch on per rule.
 # Anything beyond case-insensitivity (DOTALL, VERBOSE, MULTILINE) changes how patterns
@@ -61,12 +64,31 @@ def rule_actions(rule: dict[str, Any], stage: str) -> tuple[list[str], str | Non
     return [], None
 
 
+# The shell the command is written for; command_policy.evaluate sets it per call (PowerShell is judged raw).
+SHELL: contextvars.ContextVar[str] = contextvars.ContextVar("flow_command_shell", default="bash")
+_VIEWS: dict[tuple[str, str], View] = {}
+
+
+def command_view(command: str) -> View:
+    """What `command` runs, as hooks/shared/shell_view.py reads it, once per command and shell."""
+    key = (command, SHELL.get())
+    if key not in _VIEWS:
+        if len(_VIEWS) > 64:
+            _VIEWS.clear()
+        _VIEWS[key] = view(command, key[1])
+    return _VIEWS[key]
+
+
 def rule_matches(rule: Any, command: str, stage: str) -> tuple[bool, str | None]:
     """(matched, policy-error detail). A defective rule NEVER silently skips (K4).
 
     TRIPWIRE: `re.error` and a malformed rule must DENY, not `continue`. The original
     code skipped both, so a typo in a deny pattern silently disabled that rule and the
     command fell through to `default: allow` — a gate whose failure mode is "allow".
+
+    6.0.0-m8 item 7.10 (the owner's lock of D1a and D2-no, 2026-10-21): the pattern matches the commands the line
+    runs, at the start of one of their words (shell_view.View.matches), never words inside a quoted message, a heredoc a
+    non-shell reads or a search pattern; a line the parser cannot read is matched on its raw text, as before.
     """
     if not isinstance(rule, dict):
         return False, f"{stage} rule is not a mapping"
@@ -77,7 +99,7 @@ def rule_matches(rule: Any, command: str, stage: str) -> tuple[bool, str | None]
     if err:
         return False, err
     try:
-        return bool(re.search(pattern, command, flags)), None
+        return command_view(command).matches(re.compile(pattern, flags)), None
     except re.error as e:
         return False, f"{stage} rule pattern {pattern!r} is not a valid regex ({e})."
 
@@ -100,4 +122,4 @@ def mint_subject(command: str) -> str:
     return command if not m else f"{command[:m.start(1)]}''{command[m.end(1):]}"
 
 
-__all__ = ["mint_subject", "rule_actions", "rule_flags", "rule_matches"]
+__all__ = ["SHELL", "command_view", "mint_subject", "rule_actions", "rule_flags", "rule_matches"]

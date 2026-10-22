@@ -17,20 +17,20 @@
 #     job it claimed. Do not reintroduce it — under all-match it would let a compound
 #     command carry an ungated `rm`.
 #
-# MATCHING IS REGEX OVER THE RAW COMMAND STRING — a guardrail, not a sandbox (K21).
-# Stated because the opposite is easy to assume: every rule sees the literal text the hook
-# received, so the gate is defeatable by
-#   * quote-fragmentation — `fusebase de'pl'oy` and `npx prisma mi"grate" deploy` execute
-#     the gated command but match no pattern;
-#   * dynamic construction — eval, command substitution, variables, aliases.
-# The same raw-string matching also over-fires: PROSE that merely QUOTES a destructive pattern
-# is DENIED (a `git commit -m` message, a heredoc body) — the sanctioned path for such text is
-# `git commit -F <file>`, not a narrowing of these patterns (M8; docs/backlog/command-gate-shell-evasion/
-# lists the narrowings that MUST NOT be attempted and why each opens an evasion hole).
-# Closing this needs shell-aware parsing (or a conservative deny of dynamically constructed
-# gated commands); tracked in docs/backlog/command-gate-shell-evasion/. Do NOT write a
-# half-parser here — one wrong in either direction either breaks ordinary approvals or
-# opens a new evasion class. Process discipline is the control; this file is defence in depth.
+# MATCHING IS OVER THE PARSED COMMAND (6.0.0-m8 item 7.10; the owner's lock of 2026-10-21, D1 = D1a and D2 = D2-no in
+# docs/backlog/command-gate-shell-evasion/). hooks/shared/shell_view.py reads the line as bash does (quotes, escapes,
+# $'...', line continuation, comments, lists, pipelines, $(...), heredocs, sh -c, eval, known variables), and a pattern
+# matches at the start of a word of a command the line RUNS:
+#   * text that runs nothing is not matched: a quoted message (`git commit -m`), a search pattern (grep, rg, sed's
+#     script, `git log --grep`), echo and printf arguments, a heredoc a non-shell reads, a comment, a CLI's subcommand
+#     slot (`npm rm`, `git rm`);
+#   * text that runs is: $(...) anywhere, `sh -c`, eval, an alias, `find -exec`, ssh's remote command, a heredoc or a
+#     pipe into a shell, approve-local.sh's --command; quote-fragmentation (`fusebase de'pl'oy`) reassembles;
+#   * a line the parser cannot read (`case`, a syntax error, a PowerShell line) is matched as regex over the raw command
+#     string, as before, and its denial names no approval to mint;
+#   * D2-no: a command built at run time (`eval "$VAR"`, a package script, base64 into sh) is an accepted miss, listed by
+#     id under accepted_misses in the command-gate corpus, which the tests run as an expectation gate.
+# Process discipline is the control; this file is defence in depth.
 # One exception, exact (T280, T284): a command that is one whole `hooks/local/approve-local.sh destructive_file_delete`
 # invocation, with nothing around it, is matched with its --command argument blanked (hooks/shared/command_rules.py,
 # mint_subject). That text is the delete the approval binds, not a command that runs; any other action's mint is
