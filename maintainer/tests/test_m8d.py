@@ -163,5 +163,25 @@ class ScanColor(test_m8.Repo):
         self.assertEqual(seen, {k: ["pre-commit", "merge", "push"] for k in seen})
 
 
+class SkipMarkers(unittest.TestCase):
+    """T394 (audit #4): evidence_rows.ADDED_SKIP and its twin commit_msg.SKIP matched `skip` or `todo` anywhere on an
+    added line, so a `// TODO` comment or a test about todos failed a passing test row. Only a test runner's skip or
+    todo marker counts."""
+
+    NOT = ("// TODO: tidy", 'it("creates a todo", () => {});', "const todo = makeTodo();",
+           "# TODO: cover the 404 path", 'it("can skip onboarding", () => {});')
+    REAL = ("test.skip('x', () => {});", "it.skip('x', () => {});", "describe.skip('x', () => {});", "test.todo('x');",
+            "it.todo('x');", "test('x', { skip: true }, () => {});", "test('x', { todo: 'later' }, () => {});",
+            "t.pass('works # SKIP no db')", "echo 'not ok 2 - x # TODO later'", "ok 3 - x # SKIP",
+            "@unittest.skip('slow')", "@pytest.mark.skip(reason='slow')", "        self.skipTest('no db')")
+
+    def test_only_a_test_runners_skip_or_todo_marker_counts(self) -> None:
+        import commit_msg
+        import evidence_rows
+        for name, pattern in (("evidence_rows.ADDED_SKIP", evidence_rows.ADDED_SKIP), ("commit_msg.SKIP", commit_msg.SKIP)):
+            self.assertEqual([ln for ln in self.NOT if pattern.search("+" + ln)], [], f"{name}: not skips")
+            self.assertEqual([ln for ln in self.REAL if not pattern.search("+" + ln)], [], f"{name}: skips")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

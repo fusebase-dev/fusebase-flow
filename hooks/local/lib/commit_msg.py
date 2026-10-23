@@ -42,7 +42,7 @@ FOUR = re.compile(r"docs/flow/(backlog|phases|evidence|ledger)\.md|docs/flow/evi
 PLAN = re.compile(r"state/flags/[^/]+\.tsv|state/gate/[^/]+\.txt")  # flow-skills/plan/SKILL.md, "Commit"
 SHIP = re.compile(r"state/flags/[^/]+\.tsv|state/gate/[^/]+\.txt|state/done/[^/]+\.json|state/deploys/[^/]+\.jsonl")
 VAGUE = re.compile(r"^(?:T\d+|plan|ship)\b[:\s]*(update|fix|changes|misc|stuff|wip)\.?$", re.I)
-SKIP = re.compile(r"^\+(?!\+\+).*\b(skip|todo)\b", re.I | re.M)
+SKIP = fd.SKIP_MARKER  # a runner's skip or todo marker, never the word (T394); evidence_rows.ADDED_SKIP is the same
 
 
 def subject_of(text: str) -> str:

@@ -17,6 +17,12 @@ NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)  # no console window when
 PHASES, BACKLOG, LEDGER = "docs/flow/phases.md", "docs/flow/backlog.md", "docs/flow/ledger.md"
 TASK = re.compile(r"(?<![\w-])T\d+(?![\w-])")  # never inside an id such as O-T276-2 (field item 7.1)
 SHA = re.compile(r"[0-9a-f]{7,40}")
+# An added diff line carrying a test runner's skip or todo marker, never the bare word (T394, audit #4): `.skip(` and
+# `.todo(`, `xit(`/`xtest(`/`xdescribe(`, a `{ skip:`/`{ todo:` option, a TAP `# SKIP`/`# TODO` in an `ok` line or a
+# quoted string, `@unittest.skip`, `pytest.mark.skip`, `.skipTest(`. evidence_rows.ADDED_SKIP and commit_msg.SKIP.
+SKIP_MARKER = re.compile(r"^\+(?!\+\+).*?(\.(skip|todo)\s*\(|\b(xit|xtest|xdescribe)\s*\(|\{\s*(skip|todo)\s*:"
+                         r"|(\bok\b.*|[\"'`][^\"'`\n]*)#\s*(?i:skip|todo)\b|@unittest\.skip|pytest\.mark\.skip"
+                         r"|\.skipTest\s*\()", re.M)
 
 
 def git(root: Path, *args: str) -> str:

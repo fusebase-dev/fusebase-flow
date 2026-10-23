@@ -12,7 +12,7 @@ import flow_docs as fd
 from evidence_rules import finding_problems, flaky_problems, run_log
 
 IMAGE = (".png", ".jpg", ".jpeg", ".webp", ".gif")  # capture_min_bytes.image applies; other files take .other
-ADDED_SKIP = re.compile(r"^\+(?!\+\+).*\b(skip|todo)\b", re.I | re.M)
+ADDED_SKIP = fd.SKIP_MARKER  # a runner's skip or todo marker, never the word (T394); commit_msg.SKIP is the same
 
 
 def table(text: str) -> list[dict]:
