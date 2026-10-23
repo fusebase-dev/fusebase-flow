@@ -7,7 +7,9 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import shutil
 import subprocess
+import sys
 import time
 import unittest
 
@@ -104,6 +106,61 @@ class AllowlistDefinition(test_m8c.Gate):
         start = time.process_time()
         self.assert_denied("echo 'x' | cat; " * 2500 + "fusebase deploy")
         self.assertLess(time.process_time() - start, 4.9, "6.0.0-m7 decided this 40 KB line in 4.9 s")
+
+
+class ScanColor(test_m8.Repo):
+    """T393 (audit #3): the commit, merge and push secret scans keep the `+` lines of `git diff --cached -U0` and
+    `git log -p`. A user's color.ui=always or color.diff=always starts every line with an escape code, and diff.external
+    prints its tool's own output, so the scans saw nothing. Each scan, the repository's own copy run as its hook runs
+    it, must find a key staged, merged in or pushed under each setting."""
+
+    KEY = "AKIA" + "IOSFODNN7EXAMPLE"  # assembled at run time, so no scanner sees the literal in this file
+
+    def setUp(self) -> None:
+        super().setUp()
+        for rel in ("hooks", "policies"):
+            shutil.copytree(test_m8.CORE / rel, self.repo / rel, ignore=shutil.ignore_patterns("__pycache__"))
+        test_m8.git(self.repo, "add", "-A")
+        test_m8.git(self.repo, "commit", "-q", "--no-verify", "-m", "flow: the hooks")  # carries pre-merge-commit
+        test_m8.write(self.repo, ".git/flow/range-base", test_m8.git(self.repo, "rev-parse", "HEAD").stdout)
+        test_m8.git(self.repo, "checkout", "-q", "-b", "side")
+        test_m8.write(self.repo, "config/settings.txt", f"aws_access_key_id = {self.KEY}\n")
+        test_m8.git(self.repo, "add", "--", "config/settings.txt")
+        test_m8.git(self.repo, "commit", "-q", "--no-verify", "-m", "T1: settings")
+        self.side = test_m8.git(self.repo, "rev-parse", "HEAD").stdout.strip()
+        test_m8.git(self.repo, "checkout", "-q", "main")
+        test_m8.write(self.repo, "updates.txt", f"refs/heads/side {self.side} refs/heads/side {'0' * 40}\n")
+
+    def py(self, *argv: str) -> subprocess.CompletedProcess:
+        env = {k: v for k, v in os.environ.items() if k != "PYTHONPATH"}
+        return subprocess.run([sys.executable, "-S", *argv], cwd=self.repo, env=env, capture_output=True, text=True,
+                              encoding="utf-8", errors="replace", timeout=600)
+
+    def found(self) -> list[str]:
+        """The scans that found the key: the pre-commit's, the pre-merge-commit's and the pre-push's."""
+        hits = []
+        test_m8.git(self.repo, "checkout", "-q", "side", "--", "config/settings.txt")
+        staged = self.py("-c", "import sys; sys.path.insert(0, 'hooks'); from shared.staged_secret_scan import "
+                               "_restore_site_packages, staged_added_text; from pathlib import Path; "
+                               "_restore_site_packages(); print(staged_added_text(Path('.')))")
+        hits += ["pre-commit"] if self.KEY in staged.stdout else []
+        test_m8.git(self.repo, "rm", "-q", "-f", "--cached", "--", "config/settings.txt")
+        (self.repo / "config/settings.txt").unlink()
+        test_m8.git(self.repo, "merge", "--no-ff", "--no-commit", "side")
+        hits += ["merge"] if "secret pattern" in self.py("hooks/local/lib/range_check.py", "--merge").stderr else []
+        test_m8.git(self.repo, "merge", "--abort")
+        pushed = self.py("hooks/local/lib/range_check.py", "--push", "updates.txt", "--remote", "origin")
+        return hits + (["push"] if "secret pattern" in pushed.stderr else [])
+
+    def test_each_scan_finds_the_key_whatever_the_users_diff_colour_or_external_diff(self) -> None:
+        seen = {}
+        for key, value in ((None, None), ("color.ui", "always"), ("color.diff", "always"), ("diff.external", "true")):
+            if key:
+                test_m8.git(self.repo, "config", key, value)
+            seen[f"{key}={value}"] = self.found()
+            if key:
+                test_m8.git(self.repo, "config", "--unset", key)
+        self.assertEqual(seen, {k: ["pre-commit", "merge", "push"] for k in seen})
 
 
 if __name__ == "__main__":

@@ -90,8 +90,10 @@ def added_lines(diff_text: str) -> str:
 
 def staged_added_text(root: Path) -> str:
     """Return the added-content blob of the staged diff, designed-token files excluded."""
+    # --no-color --no-ext-diff (T393): a user's color.ui/color.diff=always starts every line with an escape code and
+    # diff.external prints its tool's own output; either way no line starts with `+` and the scan saw nothing.
     cmd = [
-        "git", "diff", "--cached", "-U0", "--",
+        "git", "diff", "--cached", "-U0", "--no-color", "--no-ext-diff", "--",
         ".", *_EXCLUDE_PATHSPECS,
     ]
     # Force UTF-8: git emits UTF-8 diff content, but `text=True` alone decodes with

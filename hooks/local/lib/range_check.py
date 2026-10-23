@@ -184,7 +184,8 @@ def push(root: Path, updates: str, name: str | None = None) -> list[str]:
         bad += [f"{c['sha'][:12]} {c['subject'][:60]}: {p} changed with no approval on record"
                 for p, _, old, new in c["changes"] if protected(p) and not approved(graph, p, old, new)]
     if judged:
-        found = secrets(root, ["log", "-p", "-U0", "--cc", "--root", "--no-renames", "--full-history", FORMAT, *args])
+        found = secrets(root, ["log", "-p", "-U0", "--no-color", "--no-ext-diff", "--cc", "--root", "--no-renames",
+                              "--full-history", FORMAT, *args])  # T393: a user's colour or diff.external hid every line
         bad += [f"{sha[:12]} {judged[sha]['subject'][:60]}: secret pattern {', '.join(ids)} (redacted)"
                 for sha, ids in found.items() if sha in judged]
     return bad
@@ -207,7 +208,8 @@ def merge(root: Path) -> list[str]:
     graph = steps(root)
     bad = [f"{p} changed with no approval on record" for p, _, old, new in mine
            if protected(p) and p not in own and not approved(graph, p, old, new)]
-    for _, ids in secrets(root, ["diff", "--cached", "-U0", "--no-renames", "HEAD"], keep=names.__contains__).items():
+    diff = ["diff", "--cached", "-U0", "--no-color", "--no-ext-diff", "--no-renames", "HEAD"]  # T393, as the push's
+    for _, ids in secrets(root, diff, keep=names.__contains__).items():
         bad.append(f"a secret pattern in what the merge brings in: {', '.join(ids)} (redacted)")
     return bad
 

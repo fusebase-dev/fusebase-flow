@@ -126,6 +126,8 @@
 #   hooks/shared/command_rules.py and policies/command-policy.yml (its comment only): one whole approve-local.sh
 #   invocation, for any action, is judged with its --command argument blanked, reversing T284's narrowing (T389; 5.x
 #   127a2e55, local; the owner's option A of 2026-10-23).
+#   hooks/shared/staged_secret_scan.py: the staged diff is read with --no-color --no-ext-diff, so a user's diff colour
+#   or diff.external no longer hides every added line from the scan (T393; 5.x fd9a1712, local; audit #3).
 # Core only, by the owner's answer of 2026-10-19 (5.x keeps its own):
 #   hooks/git/commit-msg: the 6.0 subject rules (T259; O-13; decision 10(c)'s designed divergence: the four
 #   documents and the trivial-tier policy, which 5.x trees do not have); Python found as the pre-commit finds it,
@@ -176,7 +178,7 @@ cc747d1b046b652ab5c2677752644e02f73e00917950a6a417a3a50333ce3de3  hooks/shared/m
 96de7d2ea15bb3bb2d689a0567bf91a7316c1d5fe8412c3dcc0b8aec603bd2d7  hooks/shared/path_policy.py
 2822da3b8b4aaf8f04f54b4b64d8d0cb359375f5e402fd829c5f0f28b1ce853f  hooks/shared/policy_loader.py
 fecb30ef246aaf2dc90dc55200de5d1b0bab92242c8cbbd5cbd3e9c0d8d784fa  hooks/shared/secret_scanner.py
-b2121d6ff3fd99a315087383f772ed29de11bd920c2ef7d8e8041938a50e15c4  hooks/shared/staged_secret_scan.py
+978cce1ecd6e3f136f06303026cc56379b60464e201d4b1a9482f71edd2d7672  hooks/shared/staged_secret_scan.py
 66e639442e9b2f7be2e91c7072a95a6c49331ddf5bd203c29c714cc48fd527bf  policies/approval-policy.yml
 8583aade47a9cdc8292b326276b464f7cca1cfb1c5b015bdb928ac556c7bf13b  policies/command-policy.yml
 7747637a42919bf6548600fc78a9f53866ed655dfff00370958a0707674f3840  policies/module-size-baseline.txt
