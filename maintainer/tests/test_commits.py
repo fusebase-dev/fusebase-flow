@@ -19,6 +19,8 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
+import yaml
+
 import test_scripts as m3
 from synthetic import FLOW, GIT, migrate, scratch_clone, snapshot
 from test_core import MSG_BACKLOG
@@ -627,13 +629,15 @@ class MintExempt(Workspace):
         for tail in ("; rm -rf y", " && rm y", " || rm y", "\nrm y", " | rm y", " $(rm y)", " `rm y`", " > out"):
             self.assertEqual(self.hook(self.MINT + tail), "deny", repr(tail))
         self.assertEqual(self.hook(self.MINT.replace("'rm build.log'", '"$(rm build.log)"')), "deny", "a live $( )")
-        # T284: destructive_file_delete only, written exactly; any other action's mint is judged as in 6.0.0-m4
-        for other in ("bash hooks/local/approve-local.sh production_deploy d 'go' --command 'fusebase deploy'",
-                      "bash hooks/local/approve-local.sh production_deploy p 'go' --command 'git push origin main'",
-                      *(self.MINT.replace("destructive_file_delete", alike, 1) for alike in (
-                          "'destructive_file_delete'", "Destructive_File_Delete", "destructive_file_delete_x",
-                          '"destructive_file_delete now"'))):
-            self.assertEqual(self.hook(other), "deny", other)
+        # T389 (the owner's option A of 2026-10-23, reversing T284): every action the policy declares mints the same way;
+        # the command a mint binds is still denied until its approval exists
+        self.assertEqual(self.hook("git push origin master"), "deny", "a push with no approval")
+        actions = yaml.safe_load((CORE / "policies/approval-policy.yml").read_text(encoding="utf-8"))["require_approval"]
+        for action in actions:
+            for bound in ("git push origin master", "fusebase deploy"):
+                other = f"bash hooks/local/approve-local.sh {action} t389 'go' --command '{bound}'"
+                self.assertEqual(self.hook(other), "allow", other)
+                self.assertEqual(self.hook(f"{other}; {bound}"), "deny", other)
         self.assertEqual(self.hook("rm build.log"), "deny", "no approval yet")
         mint = subprocess.run([shutil.which("bash"), "hooks/local/approve-local.sh", "destructive_file_delete", "clean",
                                "remove the build log", "--command", "rm build.log"], cwd=self.repo, capture_output=True,

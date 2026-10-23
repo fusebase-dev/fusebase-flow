@@ -36,10 +36,10 @@
 # a database client, and the quoted arguments of grep, egrep, fgrep, printf, echo and sed are blanked unless that echo
 # or printf is piped into one of those. Nothing else is: a commit message that quotes a gated command is still DENIED
 # (reword it, or commit with -F <file>). A PowerShell line is matched as written.
-# One exception, exact (T280, T284): a command that is one whole `hooks/local/approve-local.sh destructive_file_delete`
-# invocation, with nothing around it, is matched with its --command argument blanked (hooks/shared/command_rules.py,
-# mint_subject). That text is the delete the approval binds, not a command that runs; any other action's mint is
-# matched whole.
+# One exception, exact (T280, T389): a command that is one whole `hooks/local/approve-local.sh <action>` invocation,
+# for any action, with nothing around it, is matched with its --command argument blanked (hooks/shared/command_rules.py,
+# mint_subject). That text is the command the approval binds, not a command that runs; it is judged when it runs.
+# (T284 had narrowed this to destructive_file_delete; the owner reversed that on 2026-10-23.)
 #
 # FAIL-CLOSED (decision K4): an unparseable regex, a rule with no `pattern`, an
 # unsupported `flags` entry, or a missing/empty/non-mapping policy file DENIES with a

@@ -278,16 +278,17 @@ def rule_matches(rule: Any, command: str, stage: str) -> tuple[bool, str | None]
 # with no `$`, backtick or backslash inside, or bare and free of shell syntax. A command with anything else outside its
 # --command argument (`;`, `&&`, `||`, `|`, a newline, `$(...)`, backticks, a redirection) does not match.
 _WORD = r"""(?:'[^']*'|"[^"$`\\]*"|[A-Za-z0-9_./:=@%+,-]+)"""
-# Its action argument is exactly the bare word destructive_file_delete (T284): every other action's mint is judged whole.
-_MINT = re.compile(rf"[ \t]*(?:bash[ \t]+)?(?:\./)?hooks/local/approve-local\.sh[ \t]+destructive_file_delete"
+# Its action argument may be any approval action (T389, the owner's option A of 2026-10-23, reversing T284's
+# destructive_file_delete only); approve-local.sh itself refuses an action the policy does not declare.
+_MINT = re.compile(rf"[ \t]*(?:bash[ \t]+)?(?:\./)?hooks/local/approve-local\.sh"
                    rf"(?:[ \t]+{_WORD})*?[ \t]+--command[ \t]+({_WORD})(?:[ \t]+{_WORD})*[ \t]*")
 
 
 def mint_subject(command: str) -> str:
-    """The text the rules judge for `command`: the command itself, except that one whole approve-local.sh invocation
-    for destructive_file_delete is judged with its --command argument blanked. That argument is the delete the approval
-    binds, not one that runs, so the mint is not refused by the rm rule it mints for (brief m5 item 6, narrowed by
-    T284); the rest of the invocation is still judged, and the approved delete itself is judged when it runs."""
+    """The text the rules judge for `command`: the command itself, except that one whole approve-local.sh invocation,
+    for any action, is judged with its --command argument blanked. That argument is the command the approval binds, not
+    one that runs, so the mint is not refused by the rule it mints for (brief m5 item 6; T389 reverses T284's
+    narrowing); the rest of the invocation is still judged, and the approved command itself is judged when it runs."""
     m = _MINT.fullmatch(command)
     return command if not m else f"{command[:m.start(1)]}''{command[m.end(1):]}"
 
