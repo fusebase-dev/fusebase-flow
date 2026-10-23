@@ -273,6 +273,11 @@ class SuiteSpeed(unittest.TestCase):
         done = [json.loads(ln.split(" ", 1)[1]) for ln in worker.stdout.split("\n") if ln.startswith("[suite-worker] ")]
         self.assertEqual([(d["name"], d["run"], d["failures"] + d["errors"]) for d in done],
                          [("test_m8b.StagedScanHeaders", 1, 0), ("test_m8b.EolPinRun", 1, 0)], worker.stdout + worker.stderr)
+        # T390: one start line per class, before the class runs, so a class that never returns is named in the log
+        starts = [ln.split(" ", 1)[1] for ln in worker.stdout.split("\n") if ln.startswith("[suite-worker-start] ")]
+        self.assertEqual(starts, ["test_m8b.StagedScanHeaders", "test_m8b.EolPinRun"], worker.stdout)
+        self.assertLess(worker.stdout.index("[suite-worker-start] test_m8b.EolPinRun"),
+                        worker.stdout.index('"name": "test_m8b.EolPinRun"'), worker.stdout)
 
 
 if __name__ == "__main__":

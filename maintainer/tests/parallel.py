@@ -22,6 +22,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 MARK = "[suite-worker] "  # a line of its own after each class's output: the class's counts as JSON
+START = "[suite-worker-start] "  # a line of its own before each class runs, passed on at once: a hang names its class
 HEAVY = {"test_migrate": 6, "test_migrate_recovery": 6, "test_m6": 4, "test_m6_fix": 4, "test_m7": 4, "test_m8": 3,
          "test_m8b": 4}  # a class's weight per test: these build projects, install and commit through the hooks
 
@@ -51,6 +52,8 @@ def worker() -> int:
         name, started, out = line.strip(), time.monotonic(), io.StringIO()
         if not name:
             break
+        sys.stdout.write(START + name + "\n")
+        sys.stdout.flush()
         try:
             module, cls = name.rsplit(".", 1)
             suite = unittest.defaultTestLoader.loadTestsFromTestCase(getattr(importlib.import_module(module), cls))
@@ -93,6 +96,10 @@ def main() -> int:
             proc.stdin.flush()
             chunk, record = [], None
             for line in proc.stdout:
+                if line.startswith(START):
+                    with lock:
+                        print(line, end="", flush=True)
+                    continue
                 if line.startswith(MARK):
                     record = json.loads(line[len(MARK):])
                     break
