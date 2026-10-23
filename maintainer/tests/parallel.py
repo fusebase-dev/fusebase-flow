@@ -44,6 +44,9 @@ def classes(suite: unittest.TestSuite) -> list[tuple[str, int]]:
 def worker() -> int:
     """Read one class name per line from stdin, run it, print its output and a MARK line with its counts."""
     sys.path.insert(0, str(HERE))
+    # Every test module imported once before any class runs, as the single-process runner did: a class that imports
+    # `shared` from a temp copy (test_m6.NoConsoleWindow) left sys.modules["shared"] pointing at a deleted folder.
+    importlib.import_module("test_migrate").load_tests(unittest.defaultTestLoader, unittest.TestSuite(), None)
     for line in sys.stdin:
         name, started, out = line.strip(), time.monotonic(), io.StringIO()
         if not name:
