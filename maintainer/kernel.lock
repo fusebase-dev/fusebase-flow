@@ -121,6 +121,8 @@
 #   hooks/handlers/pre_tool_use.py and post_tool_use.py: the hook event's JSON is read as UTF-8 bytes, and the command
 #   hash encodes a lone surrogate instead of raising (T385; 5.x 4e424e8a, local; re-check B HOLD a, the owner's "one-line
 #   UTF-8 input fix"). 5.x's other five handlers took the same decode there.
+#   hooks/shared/command_rules.py: the allowlist matches its definition: a runner in any spelling, a heredoc opener only
+#   in code, computed once per call (T387; 5.x d7d3c06b, local; reviewer B's re-check of the cut).
 # Core only, by the owner's answer of 2026-10-19 (5.x keeps its own):
 #   hooks/git/commit-msg: the 6.0 subject rules (T259; O-13; decision 10(c)'s designed divergence: the four
 #   documents and the trivial-tier policy, which 5.x trees do not have); Python found as the pre-commit finds it,
@@ -163,7 +165,7 @@ a17fa14158188b1c02621a2d5cad7a96470578b007abb973a7327a6a00163538  hooks/shared/_
 696f965553e07c1fcdae0058d83d15f53ea136b25dd9faddb03edeffdcbefcc0  hooks/shared/approval_artifact.py
 0f69349b626801094d3069a4d27a77cc66a4e2d93e62e6ed9394ab040ac156cf  hooks/shared/audit_logger.py
 32e050ed914627062417e14e3cff080b44c2a66191ab1e91e88f6b07875a154e  hooks/shared/command_policy.py
-a44f993ecc176b0fff467376df3516b4a927f9b22f23d7310868050d9e8c23d6  hooks/shared/command_rules.py
+b544007bede9a2445e18ddf4f35e51b875efbb7cbf6107833b39090c3dd2492b  hooks/shared/command_rules.py
 2523a0585165f3f8597248aee32d985e9ac1d05797c5d0c376a77af44d71d446  hooks/shared/denial_message.py
 c11049e6dba62a00f23891837cb3c65ba47479f1ac2955d0896b6827c39c03c1  hooks/shared/git_push_binding.py
 d62987d303cd4783b682790572a5656596ef5e76c0e9fa9d87701fef7d857dcd  hooks/shared/git_utils.py

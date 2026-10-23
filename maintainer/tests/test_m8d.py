@@ -8,10 +8,12 @@ import hashlib
 import json
 import os
 import subprocess
+import time
 import unittest
 
 import test_m7
 import test_m8
+import test_m8c
 
 BS = chr(92)  # a backslash, so no escape in this file is read twice
 NL = chr(10)
@@ -69,6 +71,39 @@ class RawUtf8Stdin(test_m7.Installed):
         lines = (self.repo / "state/audit.log.jsonl").read_text(encoding="utf-8").splitlines()
         want = hashlib.sha256(" ".join(command.split()).encode("utf-8")).hexdigest()
         self.assertIn(want, [json.loads(ln).get("cmd_sha256") for ln in lines], "the twin hashes differ")
+
+
+class AllowlistDefinition(test_m8c.Gate):
+    """Reviewer B's re-check of the cut: the allowlist (T384) matched its reference, not its definition. A runner
+    spelled by path, with .exe, quoted or with the heredoc attached was not a runner, so its heredoc body or the echo
+    piped into it was blanked; `<<WORD` inside quotes, a comment or a here-string hid the lines after it; and a 40 KB
+    line ran past the hook's timeout. A heredoc in `$(...)` inside double quotes is still a heredoc (O2c)."""
+
+    def test_a_runner_in_any_spelling_runs_its_heredoc_and_its_pipe(self) -> None:
+        body = NL + "rm -rf /tmp/x" + NL + "EOF"
+        self.assert_denied("/bin/bash <<'EOF'" + body, "bash<<'EOF'" + body,
+                           "sh<<EOF" + NL + "fusebase deploy" + NL + "EOF",
+                           "bash.exe <<'EOF'" + body, '"C:/Program Files/Git/bin/bash.exe" <<' + "'EOF'" + body,
+                           '"bash" <<' + "'EOF'" + body,
+                           "/usr/bin/ssh host <<'EOF'" + NL + "rm -rf /srv/x" + NL + "EOF",
+                           "echo 'rm -rf /tmp/x' | /bin/sh", "echo 'fusebase deploy' | bash.exe",
+                           "/bin/echo 'rm -rf /tmp/x' | sh", "echo 'rm -rf /tmp/x' | \"sh\"")
+
+    def test_a_heredoc_marker_in_quotes_a_comment_or_a_here_string_hides_nothing(self) -> None:
+        self.assert_denied('git commit -m "doc: explain <<EOF usage"' + NL + "rm -rf /tmp/x",
+                           "cat <<< EOF" + NL + "rm -rf /tmp/x", "# see cat <<EOF in the docs" + NL + "fusebase deploy",
+                           "grep -n '<<EOF' docs/*.md" + NL + "git push --force origin main")
+
+    def test_a_heredoc_inside_a_quoted_substitution_stays_data_and_a_pipe_ends_at_a_separator(self) -> None:
+        self.assert_allowed('git commit -m "$(cat <<' + "'EOF'" + NL + "T1: fusebase deploy needs approval"
+                            + NL + "EOF" + NL + ')"',
+                            'gh pr create --title x --body "$(cat <<' + "'EOF'" + NL + "- rm -rf guard" + NL + "EOF"
+                            + NL + ')"', "echo 'note: rm -rf is denied' | tee notes.md; ssh host ls")
+
+    def test_a_long_line_decides_in_seconds(self) -> None:
+        start = time.process_time()
+        self.assert_denied("echo 'x' | cat; " * 2500 + "fusebase deploy")
+        self.assertLess(time.process_time() - start, 4.9, "6.0.0-m7 decided this 40 KB line in 4.9 s")
 
 
 if __name__ == "__main__":

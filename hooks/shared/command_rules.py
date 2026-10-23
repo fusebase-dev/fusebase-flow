@@ -75,9 +75,71 @@ SHELL: contextvars.ContextVar[str] = contextvars.ContextVar("flow_command_shell"
 # TRIPWIRE: widening either list lets a gated command past every rule (a heredoc into `bash`, `printf ... | sh`). Text
 # outside them that quotes a gated command (a commit message) is still refused and is reworded, never allowlisted.
 DATA_PROGRAMS = {"grep", "egrep", "fgrep", "printf", "echo", "sed"}
-RUNS_CODE = re.compile(r"(^|[|;&(]\s*|\s)(bash|sh|zsh|dash|ksh|fish|ssh|docker|podman|kubectl|xargs|psql|mysql|sqlite3)"
-                       r"(\s|$)")
+RUNNER_NAMES = "bash|sh|zsh|dash|ksh|fish|ssh|docker|podman|kubectl|xargs|psql|mysql|sqlite3"
+# A runner in any spelling (reviewer B's cut re-check (a)): bare, by path (/bin/bash, C:/.../bash.exe, quoted with its
+# spaces), quoted ("bash"), with .exe, or with the heredoc attached (bash<<EOF).
+RUNS_CODE = re.compile(r"""(?:^|[|;&(\s])(?:"[^"\n]*?[/\\]|'[^'\n]*?[/\\]|["']|[^\s"'|;&()<>]*[/\\])?"""
+                       rf"(?:{RUNNER_NAMES})(?i:\.exe)?[\"']?(?=\s|$|<|[|;&)])")
 HEREDOC = re.compile(r"<<(-?)\s*(['\"]?)([A-Za-z_][A-Za-z0-9_]*)\2")
+
+
+def heredoc_openers(line: str) -> list:
+    """Each `<<WORD` (or `<<-WORD`) that bash reads as a heredoc: in code, never inside quotes or a comment, and never
+    `<<<` (reviewer B's cut re-check (b)). `$(...)` and backticks are code again inside double quotes, so the heredoc in
+    `git commit -m "$(cat <<'EOF' ...)"` is one."""
+    found, i = [], 0
+    stack = [["code", 0]]  # contexts: code (with its open parentheses), a backtick, a double or a single quote
+    while i < len(line):
+        c, top = line[i], stack[-1]
+        if top[0] == "'":
+            if c == "'":
+                stack.pop()
+        elif top[0] == '"':
+            if c == "\\":
+                i += 2
+                continue
+            if c == '"':
+                stack.pop()
+            elif line.startswith("$(", i):
+                stack.append(["code", 0])
+                i += 2
+                continue
+            elif c == "`":
+                stack.append(["`", 0])
+        elif c == "\\":
+            i += 2
+            continue
+        elif c in "'\"":
+            stack.append([c, 0])
+        elif c == "`":
+            if top[0] == "`":
+                stack.pop()
+            else:
+                stack.append(["`", 0])
+        elif c == "#" and (i == 0 or line[i - 1] in " \t;&|("):
+            break
+        elif line.startswith("$(", i):
+            stack.append(["code", 0])
+            i += 2
+            continue
+        elif c == "(":
+            top[1] += 1
+        elif c == ")" and len(stack) > 1:
+            if top[1]:
+                top[1] -= 1
+            else:
+                stack.pop()
+        elif line.startswith("<<<", i):
+            i += 3
+            continue
+        elif line.startswith("<<", i):
+            m = HEREDOC.match(line, i)
+            if m:
+                found.append(m)
+                i = m.end()
+                continue
+        i += 1
+    return found
 
 
 def strip_heredocs(text: str) -> str:
@@ -89,7 +151,7 @@ def strip_heredocs(text: str) -> str:
         line = lines[i]
         out.append(line)
         runs_code = bool(RUNS_CODE.search(line))
-        pending = [(m.group(3), m.group(1) == "-") for m in HEREDOC.finditer(line)]
+        pending = [(m.group(3), m.group(1) == "-") for m in heredoc_openers(line)]
         i += 1
         for word, tabs in pending:
             while i < len(lines):
@@ -131,15 +193,17 @@ def blank_safe_quotes(text: str) -> str:
     """`text` with the quoted arguments of a DATA_PROGRAMS command blanked (each character a space), unless it is an
     echo or printf whose output is piped into a program RUNS_CODE names."""
     chars = list(text)
-    for s, e in _segments(text):
+    spans = list(_segments(text))
+    for n, (s, e) in enumerate(spans):
         words = text[s:e].split()
         k = 0
         while k < len(words) and re.match(r"^[A-Za-z_][A-Za-z0-9_]*=", words[k]):
             k += 1
-        if k >= len(words) or words[k].rsplit("/", 1)[-1] not in DATA_PROGRAMS:
+        name = re.split(r"[/\\]", words[k].strip("\"'"))[-1] if k < len(words) else ""
+        name = name[:-4] if name.lower().endswith(".exe") else name
+        if name not in DATA_PROGRAMS:
             continue
-        rest = text[e:].split("\n", 1)[0]
-        if words[k] in ("echo", "printf") and rest.startswith("|") and RUNS_CODE.search(rest):
+        if name in ("echo", "printf") and _feeds_a_runner(text, spans, n):
             continue
         i, q = s, None
         while i < e:
@@ -159,11 +223,31 @@ def blank_safe_quotes(text: str) -> str:
     return "".join(chars)
 
 
+def _feeds_a_runner(text: str, spans: list, n: int) -> bool:
+    """Whether segment n's output is piped into a RUNS_CODE program: the segments after it while each is joined by a
+    pipe, up to the next other unquoted separator (reviewer B's cut re-check (c): not the rest of the line)."""
+    while n + 1 < len(spans) and spans[n][1] < len(text) and text[spans[n][1]] == "|":
+        n += 1
+        if RUNS_CODE.search(text[spans[n][0]:spans[n][1]]):
+            return True
+    return False
+
+
+_ALLOWLISTED: dict[tuple[str, str], str] = {}
+
+
 def allowlisted(command: str) -> str:
-    """The text the rules match: a bash `command` with THE ALLOWLIST applied; any other shell's, as written."""
-    if SHELL.get().strip().lower() not in ("bash", "sh", ""):
+    """The text the rules match: a bash `command` with THE ALLOWLIST applied; any other shell's, as written. Computed
+    once per command and shell, not once per rule (reviewer B's cut re-check (c))."""
+    shell = SHELL.get().strip().lower()
+    if shell not in ("bash", "sh", ""):
         return command
-    return blank_safe_quotes(strip_heredocs(command))
+    key = (command, shell)
+    if key not in _ALLOWLISTED:
+        if len(_ALLOWLISTED) > 16:
+            _ALLOWLISTED.clear()
+        _ALLOWLISTED[key] = blank_safe_quotes(strip_heredocs(command))
+    return _ALLOWLISTED[key]
 
 
 def rule_matches(rule: Any, command: str, stage: str) -> tuple[bool, str | None]:
