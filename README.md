@@ -7,6 +7,7 @@ The lifecycle core a project carries: the three git hooks and their modules, the
 Needs git, bash and Python 3.10+ with PyYAML: `<the interpreter Flow will use> -m pip install -r hooks/requirements.txt`
 (`python3` on Linux and macOS, `python` or `py -3` with python.org's Python on Windows). On Debian or Ubuntu, whose
 python3 may have no pip or refuse a system-wide install, use `sudo apt install python3-yaml` or a virtual environment.
+On macOS: `brew install coreutils` (FR-27's bounded runs need `timeout` or `gtimeout`).
 The commands below that start with `bash`, or set a variable before one (`FF_BOOTSTRAP_TTL_MIN=30 bash ...`), run in Git
 Bash on Windows (any POSIX shell elsewhere). In PowerShell, set the variable first and call Git's bash by its path:
 `$env:FF_BOOTSTRAP_TTL_MIN=30; & "$env:ProgramFiles\Git\bin\bash.exe" hooks/local/write-bootstrap-approval.sh`

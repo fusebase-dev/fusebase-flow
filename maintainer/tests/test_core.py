@@ -597,6 +597,18 @@ class Health(Workspace):
         self.assertIn("wiring: codex wired (.codex/hooks.json)", out.stdout)
         self.assertRegex(out.stdout, r"status.line: flow: idle .* hooks: claude wired, codex wired")
 
+    def test_health_warns_when_neither_timeout_nor_gtimeout_is_on_path_and_keeps_its_verdict(self) -> None:
+        """T395 (audit #5): stock macOS has neither, so every bounded_run is skipped; health names the install line."""
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(flow.install(self.repo, {"claude"}), 0)
+        import health
+        real = shutil.which
+        for missing, warned in (({"timeout", "gtimeout"}, True), ({"gtimeout"}, False)):
+            with mock.patch("shutil.which", lambda name, *a, **k: None if name in missing else real(name, *a, **k)):
+                code, out = health.report(self.repo)
+            warnings = [ln for ln in out if ln.startswith("WARNING") and "brew install coreutils" in ln]
+            self.assertEqual((code, bool(warnings)), (0, warned), "\n".join(out))
+
     def test_a_missing_file_a_changed_hook_and_a_removed_git_hook_are_not_healthy(self) -> None:
         with contextlib.redirect_stdout(io.StringIO()):
             flow.install(self.repo, {"claude"})

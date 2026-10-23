@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import re
+import shutil
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -135,5 +136,7 @@ def report(target: Path) -> tuple[int, list[str]]:
     out += approvals(target)
     status = (target / "state/status.line").read_text(encoding="utf-8").strip() if (target / "state/status.line").is_file() else ""
     out.append(f"status.line: {status or 'absent (the reader has not run)'}")
+    out += ["WARNING: neither `timeout` nor `gtimeout` is on PATH, so FR-27's bounded runs are skipped; on macOS: "
+            "brew install coreutils"] * (not (shutil.which("timeout") or shutil.which("gtimeout")))  # T395; no verdict
     out.append("HEALTH: " + ("healthy" if not bad else "NOT healthy: " + "; ".join(bad)))
     return int(bool(bad)), out
