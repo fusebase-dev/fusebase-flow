@@ -597,7 +597,9 @@ class ReleaseNote(unittest.TestCase):
         version = (core / "VERSION").read_text().strip()
         note = (core / "maintainer/release-notes" / f"{version}.md").read_text("utf-8")
         head = re.search(r"^## Upgrading a 6\.0\.0-m(\d+) project to (\S+)\n", note, flags=re.M)
-        self.assertEqual((f"6.0.0-m{int(head[1]) + 1}", head[2]) if head else None, (version, version))
+        # an m-series note upgrades the pre-release before it; 6.0.0 the last one published (T396, audit #1)
+        source = "6.0.0-m8" if version == "6.0.0" else f"6.0.0-m{int(version.rsplit('-m', 1)[1]) - 1}"
+        self.assertEqual((f"6.0.0-m{head[1]}", head[2]) if head else None, (source, version))
         section = note[head.end():].split("\n## ", 1)[0]
         tracked = set(git(core, "ls-files").stdout.splitlines())
         blocks = re.findall(r"^```\n(.*?)^```$", section, flags=re.M | re.S)
