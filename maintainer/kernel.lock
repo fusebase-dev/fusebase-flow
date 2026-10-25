@@ -1,7 +1,7 @@
 # Kernel lock: sha256 of each kernel file's committed bytes (git cat-file blob HEAD:<path>).
 # Source: release/6.0 at 17b796d3 (the 5.11 kernel), byte-identical except one authorized change:
 #   hooks/local/lib/run-with-timeout.sh, trimmed to lines 32-69 (T191; owner, handoff section 9 decision 4).
-# Kernel fixes since, each landed on 5.x first and cherry-picked (owner's milestone 3 rule 5):
+# Kernel fixes through 6.0.0, each landed on 5.x first and cherry-picked (owner's milestone 3 rule 5):
 #   policies/approval-policy.yml: gate_rounds: 2 (T239; 5.x main 731acb69, public; O-3).
 #   hooks/local/lib/bounded-run.sh: the command's sha256 on heartbeat line 2 (T255; 5.x 834901cd, local; O-10).
 #   hooks/git/pre-commit: stage 4b runs validate_evidence.py --staged on evidence commits (T256; 5.x 2caaf8d1, local; O-11).
@@ -146,7 +146,9 @@
 #   hooks/git/pre-merge-commit (new, T321; m7 item 3, the owner's "a pre-merge-commit hook"): a merge's secret scan and
 #   protected-path check (hooks/local/lib/range_check.py --merge). Locked as a git hook, core only: the range check and
 #   its record are 6.0's (decision 10(c)); 5.x ships none and its installer skips it.
-# A kernel fix lands on 5.x first, is cherry-picked here, and updates this lock in the same commit.
+# Core only from 6.0.1 on (the owner's decision of 2026-10-24: 5.x is frozen at v5.11 and takes no kernel change):
+#   hooks/shared/git_utils.py: the seven functions nothing called are deleted (T398; deletions pass D1).
+# A kernel change lands on core only and updates this lock in the same commit.
 d29664c17271aee8ab671d1f8e4d609a2b15e1467af9c98883e4252a9e92cae5  .gitattributes
 0acfb991aa269888937723022f2667b0e251ed0091ccc96491752360b2a61be0  LICENSE
 e6fe845882eb635b917be76c1398b0bfb26b44abebd8bf6083616ae1a518b952  hooks/git/commit-msg
@@ -173,7 +175,7 @@ a17fa14158188b1c02621a2d5cad7a96470578b007abb973a7327a6a00163538  hooks/shared/_
 88f439c455584e4f5b6294226a328931e3a2a19792be2188992956ddea6c26c8  hooks/shared/command_rules.py
 2523a0585165f3f8597248aee32d985e9ac1d05797c5d0c376a77af44d71d446  hooks/shared/denial_message.py
 c11049e6dba62a00f23891837cb3c65ba47479f1ac2955d0896b6827c39c03c1  hooks/shared/git_push_binding.py
-d62987d303cd4783b682790572a5656596ef5e76c0e9fa9d87701fef7d857dcd  hooks/shared/git_utils.py
+d6f1cfdd4ccfe5881d89feba0c51f8d8ec5cf1c02a0a8ebb208619d21a98c65f  hooks/shared/git_utils.py
 cc747d1b046b652ab5c2677752644e02f73e00917950a6a417a3a50333ce3de3  hooks/shared/module_size.py
 96de7d2ea15bb3bb2d689a0567bf91a7316c1d5fe8412c3dcc0b8aec603bd2d7  hooks/shared/path_policy.py
 2822da3b8b4aaf8f04f54b4b64d8d0cb359375f5e402fd829c5f0f28b1ce853f  hooks/shared/policy_loader.py
