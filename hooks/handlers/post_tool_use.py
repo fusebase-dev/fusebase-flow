@@ -9,7 +9,6 @@ Logs and inspects completed tool calls. Does NOT undo automatically. Reports:
 """
 from __future__ import annotations
 
-import hashlib
 import json
 import sys
 from pathlib import Path
@@ -17,42 +16,22 @@ from pathlib import Path
 _HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(_HERE.parent))
 
-from shared.audit_logger import emit  # noqa: E402
+from shared.audit_logger import cmd_sha256, emit, event_root, stdin_text  # noqa: E402
 from shared.command_policy import is_command_tool  # noqa: E402
 from shared.git_utils import diff_paths, status_short  # noqa: E402
 from shared.path_policy import evaluate as evaluate_path  # noqa: E402
-from shared.policy_loader import find_git_root  # noqa: E402
 
 
 EDIT_LIKE_TOOLS = {"Edit", "Write", "MultiEdit", "NotebookEdit", "ApplyDiff", "create_file"}
 
 
-def _stdin_text() -> str:
-    """The hook event's JSON as text: its bytes decoded as UTF-8. Claude Code (Node's JSON.stringify) and Codex send
-    non-ASCII unescaped; Windows' default stdin code page (cp1252) misread it, and pre_tool_use's hash then raised
-    on it, which T371 turned into a deny of the call (6.0.0-m8, re-check B HOLD a)."""
-    stream = sys.stdin
-    if stream is None:
-        return ""
-    return stream.buffer.read().decode("utf-8", "replace") if hasattr(stream, "buffer") else stream.read()
-
-
-def cmd_sha256(command: str) -> str:
-    # TRIPWIRE: the whitespace-collapsed form, as hooks/local/token_waste_audit/parsing.py hashes a command.
-    # a lone surrogate (from a JSON escape) is hashed as its code point, never raised on
-    return hashlib.sha256(" ".join(command.split()).encode("utf-8", "surrogatepass")).hexdigest()
-
-
 def main() -> int:
     try:
-        event = json.loads(_stdin_text() or "{}")
+        event = json.loads(stdin_text() or "{}")
     except json.JSONDecodeError:
         event = {}
 
-    try:
-        root = find_git_root(Path(event.get("cwd") or "."))
-    except FileNotFoundError:
-        root = None
+    root = event_root(event, _HERE)
 
     tool_name = event.get("tool_name", "")
     # Every line carries the call's ids: a sub-agent's call has an agent_id, the main session's (the planner's) none,

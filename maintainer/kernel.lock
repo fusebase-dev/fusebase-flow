@@ -148,6 +148,8 @@
 #   its record are 6.0's (decision 10(c)); 5.x ships none and its installer skips it.
 # Core only from 6.0.1 on (the owner's decision of 2026-10-24: 5.x is frozen at v5.11 and takes no kernel change):
 #   hooks/shared/git_utils.py: the seven functions nothing called are deleted (T398; deletions pass D1).
+#   hooks/shared/audit_logger.py, hooks/handlers/pre_tool_use.py and post_tool_use.py: the handlers' stdin reader,
+#   command hash and root lookup written once, in audit_logger; post_tool_use gains the fallback root (T404; D4, audit #10).
 # A kernel change lands on core only and updates this lock in the same commit.
 d29664c17271aee8ab671d1f8e4d609a2b15e1467af9c98883e4252a9e92cae5  .gitattributes
 0acfb991aa269888937723022f2667b0e251ed0091ccc96491752360b2a61be0  LICENSE
@@ -155,8 +157,8 @@ e6fe845882eb635b917be76c1398b0bfb26b44abebd8bf6083616ae1a518b952  hooks/git/comm
 b5f95a53fa55ccc62da9467c08464ccf443b7ad282fb3f7ffb6b073ff28ba717  hooks/git/pre-commit
 9cd67869e78cfca6dcb6f0f32d64ed68bec34e9da9cdd99bb7913385ab630055  hooks/git/pre-merge-commit
 359f9a0be4b5efc8d01f479fa9430cf226ec198bbecd8ec644803f6fccc13ef5  hooks/git/pre-push
-23cc5357c78145c8ba998d1823b7278f041c3f16d761c982023a43ae0ff1b0bd  hooks/handlers/post_tool_use.py
-585635cdf4b84f76c90bb6a0dfa13c9369cd5217caf9d8b703bbcc7d42e9a518  hooks/handlers/pre_tool_use.py
+2cb0962b97a420d3fb67fb3753b9a345cee5c1b7e5c54cfe844983c4676de4e6  hooks/handlers/post_tool_use.py
+679c5820482f0099f44a9ade81e6b6be43eefb8dc9e5ca9dbe2ac83a9b503061  hooks/handlers/pre_tool_use.py
 465857b88e14d4b1a77e91479eb474d3c27efe2f4f888a6211623ed7f5c83400  hooks/local/approve-local.sh
 0f81c1e0228570d3469a8a2079c4386c0093e9ba88c4561f6621f2ff71a1bef4  hooks/local/check-module-size.sh
 8c1c594b604bb3e27a5879619307ae8c051cb52837ade5d30c15453b31ec62ca  hooks/local/install-git-hooks.sh
@@ -170,7 +172,7 @@ d53374aae4f94b1856c5320bfdc1ada113aa84e2ec6eecef793208efbf6c018d  hooks/local/wr
 63daf72404eb71177e26c560daf8257d7bcb63dd791983e048848cd88ae94fc8  hooks/requirements.txt
 a17fa14158188b1c02621a2d5cad7a96470578b007abb973a7327a6a00163538  hooks/shared/__init__.py
 696f965553e07c1fcdae0058d83d15f53ea136b25dd9faddb03edeffdcbefcc0  hooks/shared/approval_artifact.py
-0f69349b626801094d3069a4d27a77cc66a4e2d93e62e6ed9394ab040ac156cf  hooks/shared/audit_logger.py
+29ce929ddae581710eb9dc74220ee410f3f71e5fe8c76bf88d604cff967f8fdc  hooks/shared/audit_logger.py
 32e050ed914627062417e14e3cff080b44c2a66191ab1e91e88f6b07875a154e  hooks/shared/command_policy.py
 88f439c455584e4f5b6294226a328931e3a2a19792be2188992956ddea6c26c8  hooks/shared/command_rules.py
 2523a0585165f3f8597248aee32d985e9ac1d05797c5d0c376a77af44d71d446  hooks/shared/denial_message.py

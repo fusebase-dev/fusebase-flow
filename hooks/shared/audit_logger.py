@@ -10,9 +10,11 @@ SQLite log in v0.2 if needed.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
+import sys
 import time
 import uuid
 from pathlib import Path
@@ -35,6 +37,34 @@ def strip_userinfo(value: Any) -> Any:
     if isinstance(value, (list, tuple)):
         return [strip_userinfo(v) for v in value]
     return value
+
+
+def stdin_text() -> str:
+    """The hook event's JSON as text: its bytes decoded as UTF-8. Claude Code (Node's JSON.stringify) and Codex send
+    non-ASCII unescaped; Windows' default stdin code page (cp1252) misread it, and pre_tool_use's hash then raised
+    on it, which T371 turned into a deny of the call (6.0.0-m8, re-check B HOLD a)."""
+    stream = sys.stdin
+    if stream is None:
+        return ""
+    return stream.buffer.read().decode("utf-8", "replace") if hasattr(stream, "buffer") else stream.read()
+
+
+def cmd_sha256(command: str) -> str:
+    """The command's hash on the pre and post audit lines, one definition so a command's two lines match: the
+    whitespace-collapsed form; a lone surrogate (from a JSON escape) is hashed as its code point, never raised on."""
+    return hashlib.sha256(" ".join(command.split()).encode("utf-8", "surrogatepass")).hexdigest()
+
+
+def event_root(event: dict, handler_dir: Path) -> Path | None:
+    """The git work tree of the event's cwd; for a call from outside any (`cd <your-project>` from the folder above it)
+    the project the handler belongs to (TRIPWIRE, 6.0.0-m8 fix: a failed lookup denied every such call, and in
+    post_tool_use raised on every call, audit #10); None when neither is in one."""
+    for start in (Path(event.get("cwd") or "."), handler_dir):
+        try:
+            return find_git_root(start)
+        except (FileNotFoundError, OSError, ValueError):
+            continue
+    return None
 
 
 def audit_log_path(root: Path | None = None) -> Path:
@@ -80,4 +110,4 @@ def redact(value: str, *, keep_chars: int = 4) -> str:
     return value[:keep_chars] + "*" * max(8, len(value) - keep_chars)
 
 
-__all__ = ["emit", "audit_log_path", "redact", "strip_userinfo"]
+__all__ = ["emit", "audit_log_path", "redact", "strip_userinfo", "stdin_text", "cmd_sha256", "event_root"]

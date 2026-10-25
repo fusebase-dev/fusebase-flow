@@ -82,6 +82,16 @@ class OutsideTheProject(unittest.TestCase):
         self.assertEqual(self.decide_outside("cd fx"), (0, "allow"))
         self.assertEqual(self.decide_outside("rm -rf fx"), (2, "deny"))
 
+    def test_post_tool_use_from_outside_any_git_work_tree_prints_no_traceback(self) -> None:
+        """D4 (audit #10): post_tool_use had no such fallback, so emit() looked for a git root from the folder, raised,
+        and the hook exited 1 with a traceback on every call."""
+        with tempfile.TemporaryDirectory() as folder:
+            event = {"tool_name": "Bash", "cwd": folder, "hook_event_name": "PostToolUse", "tool_input": {"command": "ls"}}
+            out = subprocess.run([sys.executable, str(CORE / "hooks/handlers/post_tool_use.py")], input=json.dumps(event),
+                                 capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=folder,
+                                 timeout=300)
+        self.assertEqual((out.returncode, out.stderr[-300:], out.stdout), (0, "", '{"flow_decision": "allow"}'))
+
 
 def inherited(base: type) -> dict:
     """The base class's tests set to None here: they run in the base's own module."""

@@ -13,7 +13,6 @@ exit code 2 on deny so hosts that read exit codes are also covered.
 """
 from __future__ import annotations
 
-import hashlib
 import json
 import os
 import re
@@ -26,7 +25,7 @@ sys.path.insert(0, str(_HERE.parent))
 # TRIPWIRE (6.0.0-m8 fix, review B H1): an import that fails (PyYAML missing, a broken file) must still end in a printed
 # decision; an uncaught error exits 1, which run-handler.sh treats as non-blocking, so the tool call would run ungated.
 try:
-    from shared.audit_logger import emit  # noqa: E402
+    from shared.audit_logger import cmd_sha256, emit, event_root, stdin_text  # noqa: E402
     from shared.command_policy import (  # noqa: E402
         COMMAND_TOOL_NAMES,
         evaluate as evaluate_command,
@@ -36,7 +35,7 @@ try:
         assert_protected_policy_loaded,
         evaluate as evaluate_path,
     )
-    from shared.policy_loader import find_git_root, use_committed  # noqa: E402
+    from shared.policy_loader import use_committed  # noqa: E402
     from shared.secret_scanner import scan, block_decision  # noqa: E402
     _IMPORT_ERROR: Exception | None = None
 except Exception as _exc:  # noqa: BLE001
@@ -50,23 +49,6 @@ except Exception as _exc:  # noqa: BLE001
 # and route every membership test through is_command_tool() (case-insensitive).
 BASH_LIKE_TOOLS = COMMAND_TOOL_NAMES
 EDIT_LIKE_TOOLS = {"Edit", "Write", "MultiEdit", "NotebookEdit", "ApplyDiff", "create_file"}
-
-
-def _stdin_text() -> str:
-    """The hook event's JSON as text: its bytes decoded as UTF-8. Claude Code (Node's JSON.stringify) and Codex send
-    non-ASCII unescaped; Windows' default stdin code page (cp1252) misread it, and pre_tool_use's hash then raised
-    on it, which T371 turned into a deny of the call (6.0.0-m8, re-check B HOLD a)."""
-    stream = sys.stdin
-    if stream is None:
-        return ""
-    return stream.buffer.read().decode("utf-8", "replace") if hasattr(stream, "buffer") else stream.read()
-
-
-def cmd_sha256(command: str) -> str:
-    # TRIPWIRE: post_tool_use.py's twin, the whitespace-collapsed form hooks/local/token_waste_audit/parsing.py hashes;
-    # change one, change both, or a command's two audit lines stop matching.
-    # a lone surrogate (from a JSON escape) is hashed as its code point, never raised on
-    return hashlib.sha256(" ".join(command.split()).encode("utf-8", "surrogatepass")).hexdigest()
 
 
 def audit_reason(cd) -> str:
@@ -146,19 +128,11 @@ def main() -> int:
 
 def _main() -> int:
     try:
-        event = json.loads(_stdin_text() or "{}")
+        event = json.loads(stdin_text() or "{}")
     except json.JSONDecodeError:
         event = {}
 
-    try:
-        root = find_git_root(Path(event.get("cwd") or "."))
-    except (FileNotFoundError, OSError, ValueError):
-        # TRIPWIRE (6.0.0-m8 fix): a call from outside any git work tree (`cd <your-project>` from the folder above it)
-        # is judged by the rules of the project this handler belongs to; a failed lookup denied every such call.
-        try:
-            root = find_git_root(_HERE)
-        except (FileNotFoundError, OSError, ValueError):
-            root = None
+    root = event_root(event, _HERE)  # outside any work tree: the rules of the project this handler belongs to
 
     tool_name = event.get("tool_name", "")
     if root is not None:  # the shipped policies as committed, never a working-tree edit of them (m7 review B #1)
