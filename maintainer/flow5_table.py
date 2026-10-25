@@ -16,6 +16,8 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT / "hooks/local/lib"))
+import flow_docs as fd  # noqa: E402  (its `git cat-file --batch` reader)
 OUT = ROOT / "maintainer" / "flow5-sha256.json"
 PATHS = (
     "GEMINI.md", "install.sh",
@@ -28,18 +30,8 @@ PATHS = (
 PREFIXES = (".claude/commands/",)
 
 
-def git(*args: str, data: bytes | None = None) -> bytes:
-    return subprocess.run(["git", *args], cwd=ROOT, input=data, capture_output=True, check=True).stdout
-
-
-def blobs(specs: list[str]) -> list[bytes]:
-    out, i, found = git("cat-file", "--batch", data=("\n".join(specs) + "\n").encode("utf-8")), 0, []
-    for _ in specs:
-        nl = out.index(b"\n", i)
-        size = int(out[i:nl].split()[2])
-        found.append(out[nl + 1:nl + 1 + size])
-        i = nl + 1 + size + 1
-    return found
+def git(*args: str) -> bytes:
+    return subprocess.run(["git", *args], cwd=ROOT, capture_output=True, check=True).stdout
 
 
 def main() -> int:
@@ -51,8 +43,9 @@ def main() -> int:
     for tag in tags:
         names = git("ls-tree", "-r", "--name-only", "-z", tag).decode("utf-8").split("\0")
         wanted = [n for n in names if n in PATHS or (n.startswith(PREFIXES) and n.endswith(".md"))]
-        for path, data in zip(wanted, blobs([f"{tag}:{n}" for n in wanted])):
-            files.setdefault(path, {}).setdefault(hashlib.sha256(data).hexdigest(), []).append(tag)
+        got = fd.blobs(ROOT, [f"{tag}:{n}" for n in wanted])
+        for path in wanted:
+            files.setdefault(path, {}).setdefault(hashlib.sha256(got[f"{tag}:{path}"]).hexdigest(), []).append(tag)
     doc = {"source": "git cat-file of each path at each v5.* tag; regenerate: python maintainer/flow5_table.py",
            "tags": " ".join(tags),
            "files": {p: {sha: " ".join(t) for sha, t in sorted(files[p].items())} for p in sorted(files)}}
