@@ -153,6 +153,8 @@
 #   hooks/git/pre-commit and hooks/local/lib/validator_tier.py call staged_secret_scan.py's _restore_site_packages, the
 #   one copy; the pre-commit's section 3 extracts it from HEAD with its enforcer (T405; D3).
 #   hooks/local/lib/approval_inventory.py: _git decodes git's output as UTF-8, not in the locale's code page (T406; D10).
+#   hooks/local/check-module-size.sh: Python found as the approval scripts find it, python3, python, py -3, each proved
+#   3.10+, so the Store shortcut falls through (T407; D2 narrowed to audit #8 by the owner, 2026-10-25).
 # A kernel change lands on core only and updates this lock in the same commit.
 d29664c17271aee8ab671d1f8e4d609a2b15e1467af9c98883e4252a9e92cae5  .gitattributes
 0acfb991aa269888937723022f2667b0e251ed0091ccc96491752360b2a61be0  LICENSE
@@ -163,7 +165,7 @@ e6fe845882eb635b917be76c1398b0bfb26b44abebd8bf6083616ae1a518b952  hooks/git/comm
 2cb0962b97a420d3fb67fb3753b9a345cee5c1b7e5c54cfe844983c4676de4e6  hooks/handlers/post_tool_use.py
 679c5820482f0099f44a9ade81e6b6be43eefb8dc9e5ca9dbe2ac83a9b503061  hooks/handlers/pre_tool_use.py
 465857b88e14d4b1a77e91479eb474d3c27efe2f4f888a6211623ed7f5c83400  hooks/local/approve-local.sh
-0f81c1e0228570d3469a8a2079c4386c0093e9ba88c4561f6621f2ff71a1bef4  hooks/local/check-module-size.sh
+086744d15550c3a46b9f885f618044860df3a64b03c13e4f5df2520e4ab18478  hooks/local/check-module-size.sh
 8c1c594b604bb3e27a5879619307ae8c051cb52837ade5d30c15453b31ec62ca  hooks/local/install-git-hooks.sh
 5499dbfc5f71f56853769855b955d2f27cc13131e7d73b84019c68f2b24865b6  hooks/local/lib/approval_inventory.py
 9d7842ee1cd5f4b4827a737c8ce1bdd6d3eb25b8df877b20dadd57bf92c0216d  hooks/local/lib/bounded-run.sh

@@ -305,6 +305,25 @@ class StorePreflight(StorePath):
         self.assertIn(f"it runs a venv whose base interpreter is {base}", line)
         self.assertIn("what to do: deactivate the venv, or install PyYAML into both", dry.stdout)
 
+
+class StoreModuleSize(StorePath):
+    """T407 (audit #8): check-module-size.sh took the first python3 on PATH unprobed, so outside a commit (no pre-commit
+    shim) it ran the Store shortcut, and --write-baseline, the remedy its own BLOCK prints, failed."""
+
+    def test_it_falls_through_the_store_shortcut_to_the_python_the_approval_scripts_use(self) -> None:
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(flow.install(self.repo, {"claude"}), 0)
+        log = self.tmp / "python.log"
+        (self.bin / "python").write_text(f'#!/bin/sh\necho ran >> "{log.as_posix()}"\nexec "{Path(sys.executable).as_posix()}"'
+                                         ' "$@"\n', encoding="utf-8", newline="\n")
+        (self.bin / "python").chmod(0o755)
+        for argv in (("hooks/local/approve-local.sh", "--inventory"), ("hooks/local/check-module-size.sh",)):
+            log.unlink(missing_ok=True)
+            out = self.bash(*argv)
+            self.assertNotIn(STORE, out.stderr, argv[0])
+            self.assertTrue(log.is_file(), f"{argv[0]} did not run python: rc={out.returncode} {out.stderr[-300:]}")
+
+
 class StoreNote(unittest.TestCase):
     def test_the_note_installs_pyyaml_with_the_hooks_interpreter_and_names_the_store_aliases(self) -> None:
         """T270: a bare pip can belong to another Python than the one the hooks run."""

@@ -25,11 +25,15 @@ set -uo pipefail
 
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 
-python_bin="${PYTHON:-python3}"
-if ! command -v "$python_bin" >/dev/null 2>&1; then
-    python_bin="python"
-fi
-if ! command -v "$python_bin" >/dev/null 2>&1; then
+# Python as approve-local.sh and write-bootstrap-approval.sh find it: python3, then python, then py -3, each proved
+# 3.10+, so the Microsoft Store shortcut (python3 under WindowsApps, exit 49) falls through (T407, audit #8).
+_ff_is_py3() { "$@" -c 'import sys; raise SystemExit(0 if sys.version_info[:2] >= (3, 10) else 1)' >/dev/null 2>&1; }
+python_bin=()
+for FF_TRY in python3 python "py -3"; do
+    # shellcheck disable=SC2086  # "py -3" is two words
+    if _ff_is_py3 $FF_TRY; then read -r -a python_bin <<< "$FF_TRY"; break; fi
+done
+if [ "${#python_bin[@]}" -eq 0 ]; then
     echo "[module-size] python not found; skipping FR-25 check" >&2
     exit 0
 fi
@@ -40,7 +44,7 @@ for a in "$@"; do [ "$a" = "--write-baseline" ] && is_write_baseline=1; done
 if [ "$is_write_baseline" -eq 1 ]; then
     # Capture the engine's stdout so we can consume its resolved-path MARKER; stderr
     # (block / error messages) still streams straight to the terminal.
-    engine_out="$("$python_bin" "$ROOT/hooks/shared/module_size.py" "$@")"
+    engine_out="$("${python_bin[@]}" "$ROOT/hooks/shared/module_size.py" "$@")"
     rc=$?
     [ -n "$engine_out" ] && printf '%s\n' "$engine_out"
     # Fail closed: the engine returns nonzero when the policy can't be loaded (write mode)
@@ -74,7 +78,7 @@ if [ "$is_write_baseline" -eq 1 ]; then
         # worktree), and prints "SCOPE_OK" as its first line ONLY on success. Any failure
         # (import error, SystemExit from policy_loader, empty output, nonzero rc, other
         # protected paths) yields no leading "SCOPE_OK" -> refuse to mint.
-        scope_out="$(cd "$ROOT" && MSB_BASELINE="$baseline_file" "$python_bin" - <<'PY' 2>/dev/null
+        scope_out="$(cd "$ROOT" && MSB_BASELINE="$baseline_file" "${python_bin[@]}" - <<'PY' 2>/dev/null
 import os, sys
 sys.path.insert(0, "hooks")
 from pathlib import Path
@@ -109,4 +113,4 @@ PY
 fi
 
 # All args forwarded; a bare path is only valid after --write-baseline.
-exec "$python_bin" "$ROOT/hooks/shared/module_size.py" "${@:---staged}"
+exec "${python_bin[@]}" "$ROOT/hooks/shared/module_size.py" "${@:---staged}"
