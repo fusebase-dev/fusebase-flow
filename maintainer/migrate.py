@@ -17,6 +17,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 import flow
+from wiring import load as load_settings, wired  # the one rule for "wired" (hooks/local/lib, on flow's path)
 
 MC_MANIFEST = "audit/managed-content-manifest.json"
 SKILL_MIRRORS = "audit/skill-mirror-manifest.txt"
@@ -275,23 +276,11 @@ def cli_owned(rel: str, vendor: dict[str, str], cli_skills: set[str]) -> bool:
 
 
 def wiring(target: Path) -> str:
-    claude = "no .claude/settings.json"
-    try:
-        hooks = json.loads((target / ".claude/settings.json").read_text(encoding="utf-8")).get("hooks", {})
-        events = {ev: json.dumps(v) for ev, v in hooks.items()}
-        flow_events = sorted(ev for ev, v in events.items() if "hooks/handlers" in v or "run-handler" in v)
-        cli_events = sorted(ev for ev, v in events.items() if ".claude/hooks/" in v)
-        cli = f"CLI {'/'.join(cli_events)} hooks only" if cli_events else "no CLI hooks"
-        claude = f"{cli}, flow {'wired (' + '/'.join(flow_events) + ')' if flow_events else 'unenforced'}"
-    except (OSError, ValueError, AttributeError):
-        pass
-    codex = "unenforced"
-    try:
-        if "hooks/handlers" in (target / ".codex/hooks.json").read_text(encoding="utf-8"):
-            codex = "flow wired"
-    except OSError:
-        pass
-    return f"claude: {claude}; codex: {codex}"
+    """The CLI's own hook events, and Flow's wiring per provider by health's rule (wiring.wired), for the report."""
+    hooks = load_settings(target / ".claude/settings.json").get("hooks")
+    cli = sorted(ev for ev, v in hooks.items() if ".claude/hooks/" in json.dumps(v)) if isinstance(hooks, dict) else []
+    return (f"claude: {'CLI ' + '/'.join(cli) + ' hooks only' if cli else 'no CLI hooks'}, flow "
+            f"{wired(target, '.claude/settings.json')}; codex: flow {wired(target, '.codex/hooks.json')}")
 
 
 def reference_tokens(inv: Inventory) -> tuple[set[str], set[str], set[str]]:

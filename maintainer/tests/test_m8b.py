@@ -242,6 +242,14 @@ class HealthReviewB(test_m7.HealthTruth):
                                       ("python", one("python hooks/handlers/pre_tool_use.py", "Bash|Write"), None, False)):
             self.assertEqual(wired(doc, local, bom), "wired", case)
 
+    def test_the_migration_report_reads_the_wiring_as_health_does(self) -> None:
+        """D8: migrate.wiring took a mention of hooks/handlers as wiring, the substring rule 6.0.0-m7 retired."""
+        import migrate
+        echo = {"PreToolUse": [{"matcher": "Bash", "hooks": [{"command": "echo hooks/handlers/pre_tool_use.py"}]}]}
+        (self.repo / ".claude").mkdir(exist_ok=True)
+        (self.repo / ".claude/settings.json").write_text(json.dumps({"hooks": echo}), encoding="utf-8")
+        self.assertEqual(migrate.wiring(self.repo), "claude: no CLI hooks, flow unenforced; codex: flow unenforced")
+
 
 class SuiteSpeed(unittest.TestCase):
     """Item 10: the Windows leg of core-verify ran past 30 minutes. The installed test project (test_m6.Project: an
