@@ -12,7 +12,6 @@ import re
 import shutil
 import subprocess
 import sys
-from datetime import datetime, timezone
 from pathlib import Path
 
 sys.dont_write_bytecode = True  # read-only: no __pycache__ beside the core's reader either
@@ -20,6 +19,8 @@ import flow  # noqa: E402
 
 sys.path.insert(0, str(flow.CORE / "hooks/local"))
 import reader  # noqa: E402  (the one rule for "wired", shared with state/status.line)
+sys.path.insert(0, str(flow.CORE / "hooks"))
+from shared import approval_artifact as aa  # noqa: E402  (the gate's own expiry reader: a naive stamp is UTC, audit #12)
 
 HOOKS = ("pre-commit", "commit-msg", "pre-push", "pre-merge-commit")  # each one the project's hooks/git/ carries
 SETTINGS = {"claude": ".claude/settings.json", "codex": ".codex/hooks.json"}
@@ -64,12 +65,9 @@ def approvals(target: Path) -> list[str]:
     and --consume, or deleting it, clears it. Reported, never unhealthy."""
     found = []
     for f in sorted((target / "state/approvals").glob("*.json")):
-        try:
-            when = str(json.loads(f.read_text(encoding="utf-8")).get("expires_at", ""))
-            expired = datetime.fromisoformat(when.replace("Z", "+00:00")).astimezone(timezone.utc) < datetime.now(timezone.utc)
-        except (OSError, ValueError, AttributeError, TypeError):
-            when, expired = "unreadable", True
-        found += [f"approval: {f.name} expired ({when}); it authorizes nothing: delete it"] * expired
+        state = aa.expiry_state(data := getattr(aa.load(f), "data", None))
+        when = data["expires_at"] if state == "expired" else "unreadable"
+        found += [f"approval: {f.name} expired ({when}); it authorizes nothing: delete it"] * (state != "active")
     return found
 
 

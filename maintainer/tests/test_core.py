@@ -609,6 +609,19 @@ class Health(Workspace):
             warnings = [ln for ln in out if ln.startswith("WARNING") and "brew install coreutils" in ln]
             self.assertEqual((code, bool(warnings)), (0, warned), "\n".join(out))
 
+    def test_a_naive_expires_at_is_read_as_utc_as_the_gate_reads_it(self) -> None:
+        """D5 (audit #12): health read a naive stamp as local time, so east of UTC it called a live approval expired."""
+        for name, minutes in (("live", 60), ("old", -60)):
+            stamp = time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime(time.time() + minutes * 60))
+            write(self.repo, f"state/approvals/database_migration-{name}-20261025.json",
+                  json.dumps({"action": "database_migration", "expires_at": stamp}))
+        code = ("import sys, pathlib; sys.path.insert(0, sys.argv[1]); import health; "
+                "print(health.approvals(pathlib.Path(sys.argv[2])))")
+        out = subprocess.run([sys.executable, "-B", "-c", code, str(CORE / "maintainer"), str(self.repo)], text=True,
+                             capture_output=True, env={**os.environ, "TZ": "XXX-5"}, timeout=120)  # UTC+5
+        self.assertIn("database_migration-old-20261025.json expired", out.stdout, out.stderr)
+        self.assertNotIn("database_migration-live", out.stdout)
+
     def test_a_missing_file_a_changed_hook_and_a_removed_git_hook_are_not_healthy(self) -> None:
         with contextlib.redirect_stdout(io.StringIO()):
             flow.install(self.repo, {"claude"})
