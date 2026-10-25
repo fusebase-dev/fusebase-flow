@@ -152,6 +152,7 @@
 #   command hash and root lookup written once, in audit_logger; post_tool_use gains the fallback root (T404; D4, audit #10).
 #   hooks/git/pre-commit and hooks/local/lib/validator_tier.py call staged_secret_scan.py's _restore_site_packages, the
 #   one copy; the pre-commit's section 3 extracts it from HEAD with its enforcer (T405; D3).
+#   hooks/local/lib/approval_inventory.py: _git decodes git's output as UTF-8, not in the locale's code page (T406; D10).
 # A kernel change lands on core only and updates this lock in the same commit.
 d29664c17271aee8ab671d1f8e4d609a2b15e1467af9c98883e4252a9e92cae5  .gitattributes
 0acfb991aa269888937723022f2667b0e251ed0091ccc96491752360b2a61be0  LICENSE
@@ -164,7 +165,7 @@ e6fe845882eb635b917be76c1398b0bfb26b44abebd8bf6083616ae1a518b952  hooks/git/comm
 465857b88e14d4b1a77e91479eb474d3c27efe2f4f888a6211623ed7f5c83400  hooks/local/approve-local.sh
 0f81c1e0228570d3469a8a2079c4386c0093e9ba88c4561f6621f2ff71a1bef4  hooks/local/check-module-size.sh
 8c1c594b604bb3e27a5879619307ae8c051cb52837ade5d30c15453b31ec62ca  hooks/local/install-git-hooks.sh
-4df6a4b4b48dd9a67b60c3720a04465c94a69e500ead182fae9857891b3eff07  hooks/local/lib/approval_inventory.py
+5499dbfc5f71f56853769855b955d2f27cc13131e7d73b84019c68f2b24865b6  hooks/local/lib/approval_inventory.py
 9d7842ee1cd5f4b4827a737c8ce1bdd6d3eb25b8df877b20dadd57bf92c0216d  hooks/local/lib/bounded-run.sh
 474f026bba4aadd2359678806ffa4007a8d19183f87a8f119e2e2b08bb9db002  hooks/local/lib/precommit-validator-reuse.sh
 59b32bed31dba84ed161b8b1a9f9df989daec2d31a8789e8fd1ebf8b56171ed7  hooks/local/lib/run-with-timeout.sh

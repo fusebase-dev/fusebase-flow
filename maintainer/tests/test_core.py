@@ -211,6 +211,25 @@ class QuietReader(Workspace):
         self.assertIn("[flow]   WARNING: no pythonw.exe was found beside this Python, through the py launcher or on "
                       "PATH, so the task runs python.exe and a console window opens every 5 minutes.", text)
 
+    def test_a_worktree_of_a_repository_in_a_non_ascii_folder_is_read_as_utf8(self) -> None:
+        """D10: reader.git decoded git's output in the locale's code page; a linked worktree's index path names the main
+        repository's folder, and U+2510 there (UTF-8 e2 94 90; 0x90 is undefined in cp1252) crashed the reader."""
+        main, linked = self.tmp / "proj┐", self.tmp / "linked"
+        main.mkdir()
+        m3.git(main, "init", "-q", "-b", "main")
+        m3.git(main, "commit", "-q", "--allow-empty", "-m", "init")
+        m3.git(main, "worktree", "add", "-q", str(linked))
+        env = {**os.environ, "LC_ALL": "C", "PYTHONUTF8": "0", "PYTHONCOERCECLOCALE": "0"}  # cp1252 or ASCII
+        out = subprocess.run([sys.executable, "-B", str(m3.LOCAL / "reader.py"), "--once", "--root", str(linked)], env=env,
+                             capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=300)
+        self.assertEqual((out.returncode, out.stderr[-300:]), (0, ""))
+        self.assertTrue((linked / "state/status.line").is_file())
+        code = ("import sys, pathlib; sys.path.insert(0, sys.argv[1]); import approval_inventory as a; "
+                "print(a._pre_push_state(pathlib.Path(sys.argv[2])))")  # the same decode, in place (kernel)
+        out = subprocess.run([sys.executable, "-B", "-c", code, str(m3.LOCAL / "lib"), str(linked)], env=env,
+                             capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=300)
+        self.assertTrue(out.stdout.startswith("absent"), out.stdout + out.stderr)
+
 
 class FlagIds(Workspace):
     """O-17: a flag's id is its kind, task and path or variable, so a ruling outlives a re-run that moved its numbers."""

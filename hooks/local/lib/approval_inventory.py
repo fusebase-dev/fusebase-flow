@@ -48,8 +48,8 @@ def _age(data: object) -> str:
 
 def _git(root: Path, *args: str) -> str:
     try:
-        out = subprocess.run(["git", *args], capture_output=True, text=True, check=True,
-                             cwd=str(root), timeout=30, creationflags=NO_WINDOW)
+        out = subprocess.run(["git", *args], capture_output=True, text=True, encoding="utf-8", errors="replace",
+                             check=True, cwd=str(root), timeout=30, creationflags=NO_WINDOW)  # UTF-8, not the locale's
         return out.stdout.strip()
     except Exception:
         return ""

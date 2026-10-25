@@ -14,16 +14,14 @@ import hashlib
 import json
 import os
 import re
-import subprocess
 import sys
 import time
 from collections import Counter
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent / "lib"))
+from flow_docs import git  # noqa: E402  (UTF-8, whatever the locale's code page)
 from wiring import wired  # noqa: E402  (the provider's settings parsed; health reads it through this module)
-
-NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)  # no console window when the caller has none (pythonw)
 
 # A threshold without provenance is UNCALIBRATED and logs instead of alerting (non-negotiable 2).
 SILENCE_S = 30 * 60  # consumer watchdog 2026-10-14; the transcript floor is 15 min (design section 14)
@@ -35,14 +33,6 @@ OWN = ("state/reader/", "state/status.line")  # the reader's own writes are not 
 
 def utc(t: float) -> str:
     return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(t))
-
-
-def git(root: Path, *args: str) -> str:
-    try:
-        return subprocess.run(["git", *args], cwd=root, capture_output=True, text=True, timeout=60,
-                              creationflags=NO_WINDOW).stdout.strip()
-    except (OSError, subprocess.TimeoutExpired):
-        return ""
 
 
 def heartbeats(root: Path) -> list[tuple[str, float, str, bool]]:
@@ -112,8 +102,8 @@ def once(root: Path, now: float | None = None) -> dict:
         prev = {}
     beats, (audit_t, audit_hashes) = heartbeats(root), audit(root)
     flight = [b for b in beats if b[3]]
-    index = Path(root, git(root, "rev-parse", "--git-path", "index") or ".git/index")
-    signals = [b[1] for b in beats] + state_mtimes(root) + [audit_t, float(git(root, "log", "-1", "--format=%ct") or 0)]
+    index = Path(root, git(root, "rev-parse", "--git-path", "index").strip() or ".git/index")
+    signals = [b[1] for b in beats] + state_mtimes(root) + [audit_t, float(git(root, "log", "-1", "--format=%ct").strip() or 0)]
     signals += [index.stat().st_mtime] if index.is_file() else []
     last = max(signals + [0.0])
     open_ids = {a.get("id") for a in prev.get("alerts", [])}
