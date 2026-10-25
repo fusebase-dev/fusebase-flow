@@ -150,11 +150,13 @@
 #   hooks/shared/git_utils.py: the seven functions nothing called are deleted (T398; deletions pass D1).
 #   hooks/shared/audit_logger.py, hooks/handlers/pre_tool_use.py and post_tool_use.py: the handlers' stdin reader,
 #   command hash and root lookup written once, in audit_logger; post_tool_use gains the fallback root (T404; D4, audit #10).
+#   hooks/git/pre-commit and hooks/local/lib/validator_tier.py call staged_secret_scan.py's _restore_site_packages, the
+#   one copy; the pre-commit's section 3 extracts it from HEAD with its enforcer (T405; D3).
 # A kernel change lands on core only and updates this lock in the same commit.
 d29664c17271aee8ab671d1f8e4d609a2b15e1467af9c98883e4252a9e92cae5  .gitattributes
 0acfb991aa269888937723022f2667b0e251ed0091ccc96491752360b2a61be0  LICENSE
 e6fe845882eb635b917be76c1398b0bfb26b44abebd8bf6083616ae1a518b952  hooks/git/commit-msg
-b5f95a53fa55ccc62da9467c08464ccf443b7ad282fb3f7ffb6b073ff28ba717  hooks/git/pre-commit
+7858b12c66461e4b0c896272c93564a13fb72ff82d1ae15a63f6811dd7fdc19c  hooks/git/pre-commit
 9cd67869e78cfca6dcb6f0f32d64ed68bec34e9da9cdd99bb7913385ab630055  hooks/git/pre-merge-commit
 359f9a0be4b5efc8d01f479fa9430cf226ec198bbecd8ec644803f6fccc13ef5  hooks/git/pre-push
 2cb0962b97a420d3fb67fb3753b9a345cee5c1b7e5c54cfe844983c4676de4e6  hooks/handlers/post_tool_use.py
@@ -166,7 +168,7 @@ b5f95a53fa55ccc62da9467c08464ccf443b7ad282fb3f7ffb6b073ff28ba717  hooks/git/pre-
 9d7842ee1cd5f4b4827a737c8ce1bdd6d3eb25b8df877b20dadd57bf92c0216d  hooks/local/lib/bounded-run.sh
 474f026bba4aadd2359678806ffa4007a8d19183f87a8f119e2e2b08bb9db002  hooks/local/lib/precommit-validator-reuse.sh
 59b32bed31dba84ed161b8b1a9f9df989daec2d31a8789e8fd1ebf8b56171ed7  hooks/local/lib/run-with-timeout.sh
-c0c48c8ca5080fbc99df2ae11270e325e6af76508cc9fb073f3937861b3873dc  hooks/local/lib/validator_tier.py
+6d072f66ce804ffbe9d7f0279fb26bdd31feec0a9c1a6d793c3f6af64e3ad487  hooks/local/lib/validator_tier.py
 009493546e7939c7076950db52fa6a4a0415d41a98a49db85adcc8ecbf030ece  hooks/local/run-handler.sh
 d53374aae4f94b1856c5320bfdc1ada113aa84e2ec6eecef793208efbf6c018d  hooks/local/write-bootstrap-approval.sh
 63daf72404eb71177e26c560daf8257d7bcb63dd791983e048848cd88ae94fc8  hooks/requirements.txt
@@ -182,7 +184,7 @@ cc747d1b046b652ab5c2677752644e02f73e00917950a6a417a3a50333ce3de3  hooks/shared/m
 96de7d2ea15bb3bb2d689a0567bf91a7316c1d5fe8412c3dcc0b8aec603bd2d7  hooks/shared/path_policy.py
 2822da3b8b4aaf8f04f54b4b64d8d0cb359375f5e402fd829c5f0f28b1ce853f  hooks/shared/policy_loader.py
 fecb30ef246aaf2dc90dc55200de5d1b0bab92242c8cbbd5cbd3e9c0d8d784fa  hooks/shared/secret_scanner.py
-978cce1ecd6e3f136f06303026cc56379b60464e201d4b1a9482f71edd2d7672  hooks/shared/staged_secret_scan.py
+abfbf52ea6700b636e0644a301c43c9e6e9fa8e3d0931775f6f2ba3f939e6f73  hooks/shared/staged_secret_scan.py
 66e639442e9b2f7be2e91c7072a95a6c49331ddf5bd203c29c714cc48fd527bf  policies/approval-policy.yml
 8583aade47a9cdc8292b326276b464f7cca1cfb1c5b015bdb928ac556c7bf13b  policies/command-policy.yml
 7747637a42919bf6548600fc78a9f53866ed655dfff00370958a0707674f3840  policies/module-size-baseline.txt

@@ -561,11 +561,11 @@ if [ -n "$STAGED_ANY" ]; then
         # first-adoption). The PREP python below is then a pure EXTRACTOR (git show -> temp);
         # it no longer votes on trusted-vs-fallback.
         # TRIPWIRE: this list and the PREP extractor `files` list below are the CLOSURE of
-        # path_policy's imports. path_policy now delegates expiry/schema to
-        # approval_artifact.py (decision K1); a module missing from BOTH lists makes the
+        # path_policy's imports, and staged_secret_scan.py (its _restore_site_packages, D3). path_policy delegates
+        # expiry/schema to approval_artifact.py (decision K1); a module missing from BOTH lists makes the
         # trusted enforcer die with ImportError and BLOCK every commit. Add here + below
         # together whenever path_policy grows an intra-package import.
-        FR07_SENTINELS="hooks/shared/__init__.py hooks/shared/path_policy.py hooks/shared/policy_loader.py hooks/shared/approval_artifact.py policies/protected-paths.yml"
+        FR07_SENTINELS="hooks/shared/__init__.py hooks/shared/path_policy.py hooks/shared/policy_loader.py hooks/shared/approval_artifact.py hooks/shared/staged_secret_scan.py policies/protected-paths.yml"
         FR07_DECISION="trusted"
         # T32 (RELIABILITY #3, MSYS): capture the sentinel `git ls-tree HEAD` via a FILE
         # REDIRECT, NOT `$(git ls-tree ...)` command substitution — the $(...)+git pattern
@@ -628,6 +628,7 @@ files = [
     ("hooks/shared/policy_loader.py",  tmp / "shared" / "policy_loader.py"),
     # Import closure of path_policy (decision K1) — keep in sync with FR07_SENTINELS.
     ("hooks/shared/approval_artifact.py", tmp / "shared" / "approval_artifact.py"),
+    ("hooks/shared/staged_secret_scan.py", tmp / "shared" / "staged_secret_scan.py"),  # _restore_site_packages
     ("policies/protected-paths.yml",   tmp / "policies" / "protected-paths.yml"),
 ]
 
@@ -706,35 +707,10 @@ root = Path(os.environ["FR07_REAL_ROOT"])
 import_dir = os.environ.get("FR07_IMPORT_DIR") or str(root / "hooks")
 sys.path.insert(0, import_dir)
 
-
-def _restore_site_packages():
-    # `-S` dropped site-packages; the enforcer's policy_loader imports PyYAML. Re-add the
-    # site-packages dirs WITHOUT running site.main() (which would import sitecustomize/
-    # usercustomize). getsitepackages()/getusersitepackages() only RETURN paths.
-    # T32 (DEFENSE-IN-DEPTH #2): PREPEND (insert) site-packages AFTER the leading trusted
-    # import dir (sys.path[0]) — never ahead of it — so real PyYAML/stdlib win over any
-    # working-tree yaml.py shadow while [trusted_dir, site-packages, stdlib] is preserved.
-    import site
-    dirs = []
-    try:
-        dirs.extend(site.getsitepackages())
-    except Exception:
-        pass
-    try:
-        u = site.getusersitepackages()
-        if u:
-            dirs.append(u)
-    except Exception:
-        pass
-    insert_at = 1 if sys.path else 0
-    for p in dirs:
-        if p and p not in sys.path:
-            sys.path.insert(insert_at, p)
-            insert_at += 1
-
-
-_restore_site_packages()
 try:
+    # site-packages back for PyYAML without the startup files (T29, T32): the one copy, staged_secret_scan's
+    from shared.staged_secret_scan import _restore_site_packages
+    _restore_site_packages()
     from shared.path_policy import (
         assert_protected_policy_loaded, evaluate, staged_change_paths,
     )

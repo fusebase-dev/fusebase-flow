@@ -120,7 +120,8 @@ def staged_added_text(root: Path) -> str:
 
 
 def _restore_site_packages() -> None:
-    """Re-add site-packages to sys.path WITHOUT importing sitecustomize/usercustomize.
+    """Re-add site-packages to sys.path WITHOUT importing sitecustomize/usercustomize. The one copy (D3): the
+    pre-commit's sections 2 and 3, the pre-push, range_check.py and validator_tier.py call this one.
 
     TRIPWIRE (T29): the pre-commit now invokes this helper under `python3 -S` so a
     working-tree/untracked sitecustomize.py cannot run an `os._exit(0)` at startup and

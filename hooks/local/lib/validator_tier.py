@@ -28,6 +28,7 @@ TIER_INPUTS = frozenset({
     "hooks/local/lib/precommit-validator-reuse.sh",
     "hooks/local/lib/validator_tier.py",
     "hooks/shared/module_size.py",
+    "hooks/shared/staged_secret_scan.py",
 })
 # TRIPWIRE: not exhaustive (lint commands are opaque); projects must not declare what their validators read.
 VALIDATOR_CONFIG_GLOBS = (
@@ -66,16 +67,20 @@ class Verdict(NamedTuple):
     reason: str
 
 
+def shared_module(root: Path, name: str):
+    """hooks/shared/<name>.py loaded by its path: the hook runs this file with `python3 -S` and no hooks/ on sys.path."""
+    spec = importlib.util.spec_from_file_location(f"_ff_tier_{name}", Path(root) / f"hooks/shared/{name}.py")
+    if spec is None or spec.loader is None:
+        raise ImportError(f"hooks/shared/{name}.py not loadable")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
 def load_glob(root: Path):
     # TRIPWIRE: NOT path_policy's matcher - fnmatch over-matches, which is fail-OPEN for a skip list.
     # TRIPWIRE: callers use .fullmatch() only; the regex ends in "$", which .match() accepts before a trailing "\n".
-    spec = importlib.util.spec_from_file_location("_ff_tier_module_size",
-                                                  Path(root) / "hooks/shared/module_size.py")
-    if spec is None or spec.loader is None:
-        raise ImportError("hooks/shared/module_size.py not loadable")
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    return mod._glob_to_regex
+    return shared_module(root, "module_size")._glob_to_regex
 
 
 def pattern_problem(p) -> str:
@@ -101,19 +106,6 @@ def pattern_problem(p) -> str:
     return ""
 
 
-def _restore_site_packages() -> None:
-    # TRIPWIRE: the hook runs python3 -S with PYTHONNOUSERSITE=1; a user-site PyYAML is reachable only via this.
-    import site
-    for get in (getattr(site, "getsitepackages", None), getattr(site, "getusersitepackages", None)):
-        try:
-            got = get() if get else []
-        except Exception:
-            continue
-        for p in ([got] if isinstance(got, str) else got):
-            if p and p not in sys.path:
-                sys.path.append(p)
-
-
 def parse_declaration(blob: bytes, compile_glob):
     if len(blob) > MAX_BLOB:
         return None, "larger than %d bytes" % MAX_BLOB
@@ -122,7 +114,8 @@ def parse_declaration(blob: bytes, compile_glob):
     except UnicodeDecodeError:
         return None, "not UTF-8"
     try:
-        _restore_site_packages()
+        # TRIPWIRE: the hook runs python3 -S with PYTHONNOUSERSITE=1; a user-site PyYAML is reachable only via this.
+        shared_module(Path(__file__).resolve().parents[3], "staged_secret_scan")._restore_site_packages()
         import yaml
     except Exception as e:
         return None, "PyYAML unavailable (%s)" % e.__class__.__name__
