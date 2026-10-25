@@ -2,7 +2,7 @@
 """DONE check (design section 6; handoff WP 7b): `done.py <slice>`; exit 0 done, 1 not done, 2 no such slice.
 
 A task counts when a commit since the phase's base carries exactly one T<n> in its subject, that id, and touches a
-path under the task's globs; body mentions, trivial-tier commits and plan:/ship: commits do not count. The builder's
+path under the task's globs; body mentions, trivial-tier and plan:/ship:/flow: commits do not count. The builder's
 state/returns/<slice>.json must name every task with the SHA of a commit on the branch carrying its id; a missing file
 fails. Writes state/done/<slice>.json: `committed`, the field the ledger derives, and `open`.
 """
@@ -27,7 +27,7 @@ def returns_problems(root: Path, slice_id: str, tasks: dict, on_branch: dict[str
         full = fd.git(root, "rev-parse", "--verify", "-q", f"{sha}^{{commit}}").strip() if fd.SHA.fullmatch(sha) else ""
         if full not in on_branch:
             problems.append(f"{tid}: {sha[:12]} is not a commit on this branch since the phase's base")
-        elif fd.TASK.findall(on_branch[full]) != [tid]:
+        elif fd.task_ids(on_branch[full]) != [tid]:
             problems.append(f"{tid}: {sha[:12]} does not carry {tid} alone in its subject")
     return problems
 
@@ -43,8 +43,8 @@ def check(root: Path, slice_id: str) -> tuple[int, list[str], dict]:
     log, committed = fd.commits(root, base), {}
     why = {tid: "no commit carries it alone in its subject" for tid in tasks}
     for sha, subject, paths in log:
-        ids = fd.TASK.findall(subject)
-        if len(ids) != 1 or ids[0] not in tasks or ids[0] in committed or subject.startswith(("plan:", "ship:")):
+        ids = fd.task_ids(subject)
+        if len(ids) != 1 or ids[0] not in tasks or ids[0] in committed:
             continue
         if paths and all(match(p, trivial) for p in paths):
             why[ids[0]] = "only trivial-tier commits carry it"

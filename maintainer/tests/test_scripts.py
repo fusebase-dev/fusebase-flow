@@ -279,6 +279,14 @@ class Done(Workspace):
         self.assertEqual(out.returncode, 1, out.stdout)
         self.assertIn(f"T1: {stray[:12]} is not a commit on this branch", out.stdout)
 
+    def test_a_flow_commit_is_not_a_task_commit(self) -> None:
+        """D6 (audit #13): flow_docs.task_ids gives a `flow:` subject no task id; done.py read the ids itself."""
+        sha = commit(self.repo, {"src/a/x.ts": "1\n"}, "flow: upgrade Fusebase Flow, T1 noted")
+        self.returns({"T1": sha})
+        out = self.done()
+        self.assertIn("T1 OPEN: no commit carries it alone in its subject", out.stdout)
+        self.assertIn(f"T1: {sha[:12]} does not carry T1 alone in its subject", out.stdout)
+
 
 BACKLOG = """# Backlog
 
