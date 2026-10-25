@@ -110,6 +110,12 @@ def backlog(text: str) -> tuple[dict[str, dict], dict[str, dict]]:
     return items, answers
 
 
+def item_edits(root: Path, base: str, items: dict) -> dict[str, list[str]]:
+    """{item: its risk, criterion and test fields that changed since the phase's base} (field item 7.5)."""
+    then = backlog(git(root, "show", f"{base}:{BACKLOG}"))[0] if SHA.fullmatch(base) else {}
+    return {i: [k for k in ("risk", "criterion", "test") if then[i].get(k) != items[i].get(k)] for i in then if i in items}
+
+
 def policy(root: Path, name: str = "evidence-classes") -> dict:
     """policies/<name>.yml as committed at HEAD (no local twin); the working tree only while HEAD lacks the file."""
     rel = f"policies/{name}.yml"

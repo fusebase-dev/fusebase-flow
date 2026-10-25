@@ -235,15 +235,6 @@ def duplicate_flags(root, base, log, head_files, vendored) -> list[tuple]:
     return flags
 
 
-def item_edit_flags(root: Path, sl: dict, items: dict) -> list[tuple]:
-    """Check 5 (field item 7.5): an item's risk, criterion or test changed since the phase's base."""
-    base = sl["base"] or ""
-    then = fd.backlog(fd.git(root, "show", f"{base}:{fd.BACKLOG}"))[0] if fd.SHA.fullmatch(base) else {}
-    return [(5, "item-edit", t["id"], f"{t['item']}: {k} changed since the phase's base", f"{t['item']}:{k}")
-            for t in sl["tasks"] if t["item"] in then and t["item"] in items
-            for k in ("risk", "criterion", "test") if then[t["item"]].get(k) != items[t["item"]].get(k)]
-
-
 def write_flags(root: Path, slice_id: str, flags: list[tuple]) -> tuple[list[list[str]], list[list[str]]]:
     """The fired rows and the stale ones; an old row keeps its ruling and its extra columns under the same id."""
     path, head = root / "state/flags" / f"{slice_id}.tsv", ["id", "check", "task", "evidence", "ruling"]
@@ -283,7 +274,9 @@ def run(root: Path, slice_id: str) -> tuple[int, list[str]]:
     dep_flags, logs = dependency_flags(root, sl, log, at_base, test, match, items) if log else ([], [])
     budget, budget_logs = budget_flags(root, sl, log, test, match, slice_id)
     flags += dep_flags + budget + ([] if trivial else duplicate_flags(root, base, log, head_files, pol.get("vendored_paths") or []))
-    flags += item_edit_flags(root, sl, known)
+    edits = fd.item_edits(root, base, known)  # check 5 (field item 7.5)
+    flags += [(5, "item-edit", t["id"], f"{t['item']}: {k} changed since the phase's base", f"{t['item']}:{k}")
+              for t in sl["tasks"] for k in edits.get(t["item"], [])]
     rows, stale = write_flags(root, slice_id, flags)
     out += [f"  {word} {fid} check {check} {task}: {evidence}" + (f" [{ruling}]" if ruling else "")
             for word, group in (("FLAG", rows), ("STALE", stale)) for fid, check, task, evidence, ruling, *_ in group]

@@ -108,9 +108,8 @@ def validate(root: Path, target: str, file: str | None = None, present: bool = F
                  f"{written[item]} (holds as written: no failure of this commit, not PASS)" if item in written else "PASS")
         out.append(f"  {item} {state} (class {actual}, minimum {need})")
         out += detail
-    then, _ = fd.backlog(fd.git(root, "show", f"{base}:{fd.BACKLOG}")) if base else ({}, {})
-    flags = [f"FLAG item-edit {i}: {k} changed since the phase's base" for i in wanted if i in then and i in items
-             for k in ("risk", "criterion", "test") if then[i].get(k) != items[i].get(k)]
+    edits = fd.item_edits(root, base, items)
+    flags = [f"FLAG item-edit {i}: {k} changed since the phase's base" for i in wanted for k in edits.get(i, [])]
     bad = sum(bool(r[0]) for r in result.values())
     held = f"; {len(blocked)} blocked, accepted by an owner answer: " + ", ".join(f"{i} ({a})" for i, (_, a) in
                                                                                 blocked.items()) if blocked else ""
